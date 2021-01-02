@@ -1,5 +1,5 @@
-auth
-Keys.js
+auth/
+/Keys.js
 
 /auth
 /keys
