@@ -1,6 +1,9 @@
 auth
 Keys.js
 
+/auth
+/keys
+
 # Logs
 logs
 *.log
