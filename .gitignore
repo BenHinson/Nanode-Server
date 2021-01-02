@@ -1,3 +1,6 @@
+*auth/
+Server/Keys
+
 # Logs
 logs
 *.log
