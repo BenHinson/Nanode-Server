@@ -1,5 +1,5 @@
-*auth/
-Server/Keys
+auth
+Keys.js
 
 # Logs
 logs
