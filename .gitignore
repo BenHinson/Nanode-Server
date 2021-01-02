@@ -1,8 +1,5 @@
 auth/
-/Keys.js
-
-/auth
-/keys
+Server/Keys.js
 
 # Logs
 logs
