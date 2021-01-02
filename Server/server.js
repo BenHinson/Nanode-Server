@@ -87,12 +87,11 @@ Mongo_Connect.connectToServer(function(err, client) {
 
   Start_Server();
 
-  const Nano_Writer = require('./Nano_Writer');
-  const Nano_Reader = require('./Nano_Reader');
   const Helper = require('./Helper.js');
   const Nord = require('./Nord.js');
+  const Nano = require('./Nano.js');
+  const GetSet = require('./GetSet.js');
   
-  const Nano_Rework = require('./Nano_Rework.js');
 
   io
   .use(async(socket, next) => { // Authentication
@@ -105,48 +104,40 @@ Mongo_Connect.connectToServer(function(err, client) {
   .on('connection', function(socket) {
     
     socket.on('ItemCreate', async (data) => {
-      let New_Item = {};
-      let dateNow = new Date(Date.now());
-      let oID = uuidv1();
 
-      if (data.Type == "Span") {
-        New_Item = {"Name": {"Cur":Helper.truncate(data.Name, 128)}};
-      } 
-      else if (data.Directory == "Homepage") {
-        New_Item = {
-          "UUID": oID,
-          "Name": {"Cur":Helper.truncate(data.Name, 128)},
-          "Span": Helper.truncate(data.Span, 128),
-          "Path": {"Cur":"/"+Helper.truncate(data.Span, 128)+"/"},
-          "Parent": Helper.truncate(data.Span, 128),
-          "Type": {"isFi": false},
-          "Security": {"Pass": Helper.truncate(data.Options.Pass, 256), "Pin": Helper.truncate(data.Options.Pin, 256)},
-          "Description": Helper.truncate(data.Options.Description, 512),
-          "Tags": {"Color": data.Options.Colour},
-          "Time":{"CreaT":dateNow, "CreaW":socket.uID}
-        };
-      } 
-      else if (data.Type == "Folder") {
-        New_Item = {
-          "UUID": oID,
-          "Name": {"Cur":Helper.truncate(data.Name, 128)},
-          "Path": {"Cur":Helper.truncate(data.Path, 1024)},
-          "Parent": Helper.truncate(data.Directory, 128),
-          "Type": {"isFi": false},
-          "Security": {"Pass": Helper.truncate(data.Options.Pass, 256), "Pin": Helper.truncate(data.Options.Pin, 256)},
-          "Description": Helper.truncate(data.Options.Description, 512),
-          "Tags": {"Color": data.Options.Colour},
-          "Time":{"CreaT":dateNow, "CreaW":socket.uID}
-        };
-      } 
-      else {return;}
+      let Write = {
+        "user": socket.uID,
+        "type": data.type,
+        "section": data.section || "main",
+        "parent": data.type == "Span" ? "homepage" : Helper.truncate(data.parent, 128),
+        "data": data.type == "Span"
+          ? {"name": Helper.truncate(data.name, 128)}
+          : {
+            "id": uuidv1(),
+            "name": Helper.truncate(data.name, 128),
+            "parent": Helper.truncate(data.parent, 128),
+            "type": {
+              "file": false,
+              "mime": "FOLDER"
+            },
+            "security": {"pass": Helper.truncate(data.Options.pass, 256), "Pin": Helper.truncate(data.Options.pPin, 256)},
+            "colour": data.Options.colour,
+            "description": Helper.truncate(data.Options.description, 512),
+            "time": {
+              "created": {
+                "stamp": Helper.timeNow(),
+                "who": socket.uID
+              }
+            }
+          }
+      }
 
-      if (await Nano_Writer.writeJSONObject(socket.uID, "New", data.Directory, data.Type, New_Item)) {
-        await Nano_Reader.returnInformation(socket.uID, "Main_Contents", data.Directory, "").then(function(Result) {
-          if (Result) { socket.emit('Directory', {"Parent": Result[0], "Contents": Result[1]}) }
-        });
-      } else {return;}
-      
+      if (data.type.match(/Item|Folder|File|Span/i)) {
+        if (await Nano.Write(Write)) {
+          let Result = await Nano.Read({"user": socket.uID, "type": (data.directory == "homepage" ? "HOME": "ID"), "section": data.section, "ids": [data.directory]});
+          if (Result) {Result[data.directory]; socket.emit('Directory', {"Parent": {"name": Result.name, "id": Result.id}, "Contents": Result.Contents}) }
+        }
+      }      
     })
 
     socket.on('ItemEdit', async (data) => {

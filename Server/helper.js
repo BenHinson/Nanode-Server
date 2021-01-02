@@ -1,6 +1,6 @@
 const parser = require('ua-parser-js');
 const Nanode_Keys = require('./Keys.js');
-const Nano_Reader = require('./Nano_Reader.js')
+const Nano = require('./Nano.js');
 
 const UUIDV1_Checker = /^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
 
@@ -65,15 +65,20 @@ module.exports = {
   },
 
   securityChecker: async(Input, userID, Path, After, object) => {
+
+    console.log("Security Checker Requires a section. Must check all calls to securityChecker"); return false;
+
+
     if (Path == "Homepage") { return false; }
-    let securityLookup = object ? object : await Nano_Reader.returnInformation(userID, "Information", Path, ["Security"]);
+    // let securityLookup = object ? object : await Nano_Reader.returnInformation(userID, "Information", Path, ["Security"]);
+    let securityLookup = object ? object : await Nano.Read({"user": userID, "type": "SPECIFIC", "section": (codex ? "codex" : "main"), "ids": [WantedURL], "keys": ["security"]});
     if (!securityLookup[0]) { return false; }
   
     let level = 0;
     let Type = [];
   
-    if (securityLookup[0].Pass) { level++; Type.push("Password") }
-    if (securityLookup[0].Pin) { level++; Type.push("Pin") }
+    if (securityLookup[0].pass) { level++; Type.push("Password") }
+    if (securityLookup[0].pin) { level++; Type.push("Pin") }
     // if (securityLookup[0].Time)
   
     if (After == "Amount") { return level; }

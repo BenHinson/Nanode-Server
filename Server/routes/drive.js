@@ -15,10 +15,10 @@ const crypto = require('crypto');
 const uuidv1 = require('uuid/v1');
 const uuidv3 = require('uuid/v3');
 
-const Nano_Reader = require('../Nano_Reader.js');
-const Nano_Writer = require('../Nano_Writer.js');
-const Helper = require('../helper.js');
+const Nano = require('../Nano.js');
 const Nord = require('../Nord.js');
+const GetSet = require('../GetSet.js');
+const Helper = require('../helper.js');
 
 // const Encryptor = require('../Encryptor.js');
 
@@ -51,41 +51,35 @@ Drive_Router.use('/storage/:content', async (req, res, next) => {
   let userID = req.headers.uID;
   
   let WantedURL = req.params.content;
-  let imgHeight = (req.query.h == "null") ? null : (typeof req.query.h == "string") ? parseInt(req.query.h) : undefined;
-  let imgWidth = (req.query.w == "null") ? null : (typeof req.query.w == "string") ? parseInt(req.query.w) : undefined;
+  let imgHeight = (req.query.h == "null") ? null : parseInt(req.query.h || null);
+  let imgWidth = (req.query.w == "null") ? null : parseInt(req.query.w || null);
   let codex = parseInt(req.query.cdx);
 
-  Type = await Nano_Reader.returnInformation(userID, (codex ? "CodexInfo" : "Information"), WantedURL, (codex ? [codexConverter[codex], "Type"] : ["Type"]))
+  let Type = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": (codex ? "codex" : "main"), "ids": [WantedURL], "keys": ["type"]});
+  console.log(Type);
+  Type = Type[WantedURL];
 
-  if (typeof Type !== 'undefined' && Type.length) {
-    let File_Wanted = uuidv3(WantedURL, userID);
-
-    if (codex) {
-      fs.readFile('F:\\Nanode\\UsersContent\\'+File_Wanted, function(err, data) {
-        if (err) {console.log("Couldn't Find File");} else {
-          res.setHeader("Content-Type", Type);
-          return res.end(data);
-        }
-      });
-    } else {
-      fs.readFile('F:\\Nanode\\UsersContent\\'+File_Wanted, function(err, data) {
-        if (err) {console.log("Couldn't Find File");} else {
-          res.setHeader("Content-Type", Type[0].mimeT);
-          res.writeHead(200);
-          if ( Type[0].isImg && !Type[0].mimeT.includes("svg") && (typeof imgHeight == "number" || imgHeight == null) && (typeof imgWidth == "number" || imgWidth == null) ) {
-            sharp(data)
-            .resize({fit: sharp.fit.contain, width: imgWidth, height: imgHeight})
-            .toBuffer((err, data, info) => { return res.end(data); })
-          } else { return res.end(data); }
-        }
-      })
-    }
+  if (typeof Type !== 'undefined' && Type.mime) {
+    fs.readFile(`F:\\Nanode\\UsersContent\\${uuidv3(WantedURL, userID)}`, function(err, data) {
+      if (err) {console.log("File Not Found"); return res.status(404);}
+      else {
+        res.setHeader('Content-Type', Type.mime);
+        res.writeHead(200);
+        if (!codex && Type.file && !Type.mime.includes("svg")) {
+          sharp(data)
+          .resize({fit: sharp.fit.contain, width: imgWidth || null, height: imgHeight || null})
+          .toBuffer((err, data, info) => { return res.end(data); })
+        } else {res.end(data);}
+      }
+    })
     return;
   }
 })
 
 Drive_Router.use('/user/:section?/:area?/:item?', async (req, res, next) => {
   let userID = req.headers.uID;
+
+  console.log("Item Info Fetch Declined, Needs Update"); return;
 
   const Section = Helper.capitalize(req.params.section);
   const Area = Helper.CheckConvertParam(req.params.area);
@@ -122,8 +116,8 @@ Drive_Router.use('/folder/:oID', async (req, res, next) => {
     let itemSecurity = await Helper.securityChecker(false, userID, oID, "Access");
     if (itemSecurity) { return res.send({"Locked": itemSecurity}); return; }
     else {
-      let result = await Nano_Reader.returnInformation(userID, "Main_Contents", oID, "")
-      if (result) { return res.send({"Parent": result[0], "Contents": result[1] });}
+      let Result = await Nano.Read({"user": userID, "type": (oID == "homepage" ? "HOME": "ID"), "section": "main", "ids": [oID]});
+      if (Result) {Result[oID]; return res.send({"Parent": {"name": Result.name, "id": Result.id}, "Contents": Result.Contents });}
     }
   }
   return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
@@ -131,8 +125,8 @@ Drive_Router.use('/folder/:oID', async (req, res, next) => {
 
 Drive_Router.use('/settings', async (req, res, next) => {
   if (req.headers.uID != "null") {
-    let settings = await Nano_Reader.Account_Get(req.headers.uID, ["settings"]);
-    if (typeof settings.settings == 'undefined' || settings.settings == false) {await Nano_Writer.Account_Write(req.headers.uID, "settings", Helper.Settings_Template); }
+    let settings = await GetSet.Account_Get(req.headers.uID, ["settings"]);
+    if (typeof settings.settings == 'undefined' || settings.settings == false) {await GetSet.Account_Write(req.headers.uID, "settings", Helper.Settings_Template); }
     else { res.send({"Settings": settings.settings}) }
   } 
   else { res.send({"Error": "NOT_LOGGED_IN"}) }
@@ -144,8 +138,8 @@ Drive_Router.post('/auth', async (req, res) => {
   if (body && req.headers.uID != "null") {
     let access = await Helper.securityChecker(body.Entries, req.headers.uID, body.Item, "Access");
     if (access === true) {
-      let result = await Nano_Reader.returnInformation(req.headers.uID, "Main_Contents", body.Item, "")
-      if (result) { return res.status(200).send({"Parent": result[0], "Contents": result[1] }); }
+      let Result = await Nano.Read({"user": req.headers.uID, "type": (oID == "homepage" ? "HOME": "ID"), "section": "main", "ids": [body.Item]});
+      if (Result) {Result[oID]; return res.status(200).send({"Parent": {"name": Result.name, "id": Result.id}, "Contents": Result.Contents });}
     }
   }
   return res.status(401).send({"Error": "Invalid"});
@@ -230,23 +224,38 @@ Create_Folders = async(relative_path, user, item) => {
   // return relative_path.length ? lastFolder[relative_path.slice(-1)].id : null; // I may be able to remove these and replace with the previous_Folder variable;
 }
 Create_New_Item = async(user, oID, pID, item) => {
-  // oID: object_ID, fID: folder_ID, pID: parent_ID, uID: user_ID
-  let datenow = new Date(Date.now());
+  // oID: object_ID, pID: parent_ID
+  const {section, name, type, size, isFi} = item;
+  let datenow = Helper.datenow();
 
-  let New_Item = {
-    "UUID": oID,
-    "Name": {"Cur":Helper.truncate(item.name, 128)},
-    "Span": Helper.truncate(item.span, 128),
-    "Parent": Helper.truncate(pID, 128),
-    "Size": item.size ?? '',
-    "Type": {"isFi": item.isFi ?? false},
-    "Time":{"CreaT":datenow, "CreaW":user, "ModiT": item.modified ? new Date(item.modified).toISOString() : datenow, "ModiW": user}
-  };
-  if (item.isFi) {
-    New_Item.Type['mimeT'] = item.type;
-    New_Item.Type['isImg'] = item.type.includes('image/') ? item.type : '';
+  let ItemData = {
+    "id": oID,
+    "name": Helper.truncate(name, 128),
+    "parent": Helper.truncate(pID, 128),
+    "size": size ?? '',
+    "type": {
+      "file": isFi,
+      "mime": type
+    },
+    "time": {
+      "created": {
+        "stamp": datenow,
+        "who": user
+      },
+      "modified": {
+        "stamp": item.modified ? new Date(item.modified).toISOString() : datenow,
+        "who": user
+      }
+    }
   }
-  await Nano_Writer.writeJSONObject(user, "New", pID, item.isFi ? "File" : "Folder", New_Item);
+
+  await Nano.Write({
+    "user": user,
+    "type": type,
+    "section": section,
+    "parent": Helper.truncate(pID, 128),
+    "data": ItemData
+  })
 }
 
 

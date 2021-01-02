@@ -11,7 +11,8 @@ const sharp = require('sharp');
 
 const Helper = require('../helper.js');
 const Nord = require('../Nord.js');
-const Nano_Reader = require('../Nano_Reader.js');
+
+const GetSet = require('../GetSet.js');
 
 
 // npm install ejs.
@@ -37,7 +38,7 @@ Link_Router.use(csp({
 Link_Router.use('/download/preview/:id', cors(corsOptions), async(req, res) => {
   let item = parseInt(req.query.item);
   if (typeof item != 'undefined' && Number.isInteger(item)) {
-    await Nano_Reader.readDownloadLink(req.params.id).then(function(result) {
+    await GetSet.readDownloadLink(req.params.id).then(function(result) {
       if (result.for == "SHARE") {
         fs.readFile('F:\\Nanode\\UsersContent\\'+result.preview[item].File, function(err, data) {
           if (err) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); } else {
@@ -53,7 +54,7 @@ Link_Router.use('/download/preview/:id', cors(corsOptions), async(req, res) => {
 })
 
 Link_Router.use('/download/a/:id', async(req, res) => {
-  await Nano_Reader.readDownloadLink(req.params.id).then(function(result) {
+  await GetSet.readDownloadLink(req.params.id).then(function(result) {
     if (result.for == "SELF") { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); }
     else if (result.for == "SHARE") {
       return res.download("F:\\Nanode\\UserDownloads\\Nanode_"+result.url+".zip", function(err) {
@@ -66,7 +67,7 @@ Link_Router.use('/download/a/:id', async(req, res) => {
 Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
   let Account = await Nord.Check("HTTP", req, res);
   let userID = Account.uID;
-  await Nano_Reader.readDownloadLink(req.params.id).then(function(result) {
+  await GetSet.readDownloadLink(req.params.id).then(function(result) {
     if (result === false || (result.for == "SELF" && userID != result.owner)) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); }
     if (result.for == "SELF" && userID == result.owner) {
       res.download("F:\\Nanode\\UserDownloads\\Nanode_"+result.url+".zip", function(err) {
@@ -90,7 +91,7 @@ Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
 })
 
 Link_Router.use('/:link', cors(corsOptions), async(req, res) => {
-  let fileName_mimeType = await Nano_Reader.readShareLink(req.params.link).then(function(result) {
+  let fileName_mimeType = await GetSet.readShareLink(req.params.link).then(function(result) {
     if (result === false) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');; }
     if (result.mime != "FOLDER") {
       fs.readFile('F:\\Nanode\\UsersContent\\'+result.file, function(err, data) {

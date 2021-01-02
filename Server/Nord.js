@@ -1,4 +1,4 @@
-// nord - Nano_Object_Record_Database
+// nord - Nano-Object-Record-Database
 
 const CryptoJS = require("crypto-js");
 const crypto = require('crypto');
