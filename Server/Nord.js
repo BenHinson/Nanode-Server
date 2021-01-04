@@ -47,7 +47,7 @@ module.exports = {
     let tray = (Type == "SOCKET" ? cookie.parse(JSON.stringify(Connection.handshake.headers.cookie)) : Connection.cookies);
     if (!tray) { return false; }
     let Nord_Cookie = (tray.nord ? ( JSON.parse( CryptoJS.AES.decrypt(decodeURIComponent( cookie_sign.unsign( tray.nord , Keys.SECRET_KEY ) ), Keys.COOKIE_ENCRYPT_KEY).toString(CryptoJS.enc.Utf8) ) ) : false);
-    if (!Nord_Cookie || !Nord_Cookie.sID || !Nord_Cookie.cID) { return false; }
+    if (!Nord_Cookie || !Nord_Cookie.sID || !Nord_Cookie.cID) { console.log("Incomplete Cookie"); return false; }
     
     // WhiteList
     if (WhiteListID.indexOf(Nord_Cookie.uID) !== -1) { return {"uID": Nord_Cookie.uID} }

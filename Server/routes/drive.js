@@ -76,48 +76,29 @@ Drive_Router.use('/storage/:content', async (req, res, next) => {
   }
 })
 
-Drive_Router.use('/user/:section?/:area?/:item?', async (req, res, next) => {
-  let userID = req.headers.uID;
+Drive_Router.use('/user/:section?/:item?', async (req, res, next) => {
+  const section = Helper.validateClient('section', req.params.section) ? req.params.section : 'main';
+  const item = Helper.validateClient('nanoID', req.params.item) ? req.params.item : undefined;
 
-  console.log("Item Info Fetch Declined, Needs Update"); return;
-
-  const Section = Helper.capitalize(req.params.section);
-  const Area = Helper.CheckConvertParam(req.params.area);
-  const Item = Helper.CheckConvertParam(req.params.item);
-
-  if (userID && Section) {
-    let usersContent = await loadJsonFile('F:\\Nanode\\UserJSON\\'+userID+".json");
-    var WantedData = {};
-
-    if (Section && Area && Item && Item != "Security" && usersContent[Section][Area][Item]) {
-      var WantedData = usersContent[Section][Area][Item];
-    } else if (Section && Area && usersContent[Section][Area]) {
-      var WantedData = usersContent[Section][Area];
-    } else if (Section && usersContent[Section]) {
-      var WantedData = usersContent[Section]
-    } else { return res.send({"Error": "Invalid Request"}) }
-
-    if (WantedData.UUID) { WantedData.Security = Helper.securityValue(WantedData); } 
-    else { for (item in WantedData) {
-      WantedData[item].Security = Helper.securityValue(WantedData[item]);
-      // MongoDB Search for the userid if it doesnt match the userID
-    } }
-
-    return res.send( WantedData )
-  }
+  if (req.headers.uID && section && item) {
+    let nano = await Nano.Read({"user": req.headers.uID, "type": "ID", "section": section, "ids": [item], "contents": false});
+    if (nano[item]) {nano[item].security = Helper.securityValue(nano[item].security);}
+    return res.status(200).send( nano )
+  } else { return res.status(400).send({"Error": "Invalid Request"}) }
   return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
 })
 
 Drive_Router.use('/folder/:oID', async (req, res, next) => {
   let userID = req.headers.uID;
-  let oID = req.params.oID;
+  let oID = req.params.oID.replace('$', '');
+  let section = Helper.validateClient(req.query.s) ? req.query.s : "main";
 
   if (userID && oID) {
     let itemSecurity = await Helper.securityChecker(false, userID, oID, "Access");
     if (itemSecurity) { return res.send({"Locked": itemSecurity}); return; }
     else {
-      let Result = await Nano.Read({"user": userID, "type": (oID == "homepage" ? "HOME": "ID"), "section": "main", "ids": [oID]});
-      if (Result) {Result[oID]; return res.send({"Parent": {"name": Result.name, "id": Result.id}, "Contents": Result.Contents });}
+      let Result = await Nano.Read({"user": userID, "type": "ID", "section": section, "ids": [oID]});
+      if (Result) { Result = Result[oID] || Result; return res.send({"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result });}
     }
   }
   return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
@@ -138,8 +119,8 @@ Drive_Router.post('/auth', async (req, res) => {
   if (body && req.headers.uID != "null") {
     let access = await Helper.securityChecker(body.Entries, req.headers.uID, body.Item, "Access");
     if (access === true) {
-      let Result = await Nano.Read({"user": req.headers.uID, "type": (oID == "homepage" ? "HOME": "ID"), "section": "main", "ids": [body.Item]});
-      if (Result) {Result[oID]; return res.status(200).send({"Parent": {"name": Result.name, "id": Result.id}, "Contents": Result.Contents });}
+      let Result = await Nano.Read({"user": req.headers.uID, "type": "ID", "section": "main", "ids": [body.Item]});
+      if (Result) { Result = Result[oID] || Result; return res.send({"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result });}
     }
   }
   return res.status(401).send({"Error": "Invalid"});
@@ -257,8 +238,6 @@ Create_New_Item = async(user, oID, pID, item) => {
     "data": ItemData
   })
 }
-
-
 
 
 module.exports = Drive_Router;

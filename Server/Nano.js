@@ -6,10 +6,9 @@ const Nano_Coll = Mongo_Connect.getColl("nano");
 
 const Helper = require('./helper.js');
 
-const crpyto = require('crypto');
+const crypto = require('crypto');
 const { nanoid } = require('nanoid');
 const uuidv1 = require('uuid/v1');
-const uuidv3 = require('uuid/v3');
 
 // ===================================================
 
@@ -34,7 +33,7 @@ const Nano_Account = {
       "name": "Main",
       "contents": {}
     },
-    "_GENERAL": {
+    "_GENERAL_": {
       "name": "General",
       "contents": {}
     }
@@ -64,7 +63,7 @@ const Contents_Item = {
   "mime": "",
   "size": "",
   "time": "",
-  "colour": ""
+  "color": ""
 };
 
 // =====================  NANO  =====================
@@ -97,30 +96,33 @@ module.exports = {
     const {user, type, section, id, changeTo={}, moveTo} = Edit;
   
     changeTo.time = {"modified": {"stamp": Helper.timeNow(), "who": user}};
+
+    ["id", "contents", "size", "security", "type"].forEach(Key => delete changeTo[Key]);
   
     let current = await module.exports.Read({"user": user, "type": "ID", "section": section, "ids": [id]})
     current = current[id];
-  
-    if (type == "SPAN" && changeTo) {
+    
+    if (type == "DATA" && changeTo) {
+      changeTo.name ? Mongo.$push = { [`${section}.${id}.previous`]: {$each: [changeTo.name], $slice: -5} } : '',
       Mongo.$addFields = { [`${section}.${id}`]: changeTo };
-    } 
-    else if (type == "DATA" && changeTo) {
-      Mongo.$addFields = {  [`${section}.${id}`]: changeTo };
-      Mongo.$set = { [`${section}.${current.parent}.contents.${id}`]: Short_Contents(changeTo, current) };
+      if (!current.parent.match(/home|homepage/i)) {
+        Mongo.$set = { [`${section}.${current.parent}.contents.${id}`]: Short_Contents(changeTo, current) };
+      }
     }
     else if (type == "MOVE" && moveTo) {
-      const External = moveTo.match(/bin|main|codex|block/i);
+      Mongo.$set = {};
+      const External = moveTo.match(/bin|main|codex|block/); // Dont use i tag: (_MAIN_ will match 'main' if not)
       if (moveTo == "bin") {return "Cannot Move to Bin"}
   
       const New_Parent = External ? (moveTo == "main" ? await Nano_Get(user, {[`home.${moveTo}`]: 1}).then((res) => res[0]["home"][moveTo][0]) : "homepage" ) : moveTo;
-  
-      (current.parent).toLowerCase() == "homepage" // Remove From Parents
+
+      current.parent.toLowerCase() == "homepage" // Remove From Parents
         ? Mongo.$pull = { [`home.${section}`]: id }
-        : Mongo.$unset = [`${section}.${current.parent}.contents.${id}`]
+        : Mongo.$unset = {[`${section}.${current.parent}.contents.${id}`]: ''}
   
       New_Parent.toLowerCase() == "homepage" // Set to New Parents
         ? Mongo.$push = { [`home.${moveTo}`]: id }
-        : Mongo.$set = { [ External ? `${moveTo}.${New_Parent}.contents.${id}` : `${section}.${moveTo}.contents.${id}` ]: Short_Contents(changeTo, current) }
+        : Mongo.$set[ External ? `${moveTo}.${New_Parent}.contents.${id}` : `${section}.${moveTo}.contents.${id}` ] = Short_Contents(changeTo, current);
       
       if (External) {
         let Contents_Tree = await module.exports.Read({"user": user, "type": "TREE", "section": section, "ids": [id]});
@@ -138,9 +140,9 @@ module.exports = {
         }
   
         Mongo.$set = Key_Set({ "Pre":moveTo, "Change":{...Contents_Tree.Parent_Nano, ...Contents_Tree.Child_Nano} }, Mongo.$set)
-      } 
+      }
       else {
-        Mongo.$set = {  [`${section}.${id}.parent`]: moveTo }
+        Mongo.$set[`${section}.${id}.parent`] = moveTo;
       }
     }
     else { return; }
@@ -155,20 +157,21 @@ module.exports = {
     if (CUSTOM) {
       Project = CUSTOM;
     }
-    else if (type == "HOME") {     // Returns Short-Nanodes of the specified sections homepage
-      let Spans = await Nano_Get(user, {[`home.${section}`]: 1});
-      Project = ID_Query(section, Spans[0]['home'][section]);
-    }
     else if (type == "ID") {    // Returns either full nanode of specified or its contents
-      Project = ID_Query(section, ids, contents);
+      if (ids[0].match(/home|homepage/i)) {
+        let Spans = await Nano_Get(user, {[`home.${section}`]: 1});
+        Project = ID_Query({"section":section, "query":Spans[0]['home'][section]});
+      } else {
+        Project = ID_Query({"section":section, "query":ids, "contents":contents});
+      }
     }
     else if (type == "RAW") {     // Returns the long-nanodes of items contents 
-      let ID_Contents = await Nano_Get(user, ID_Query(section, ids, true));
+      let ID_Contents = await Nano_Get(user, ID_Query({"section":section, "query":ids, "contents":true}));
       let List_Of_IDs = [];
       for (const item in ID_Contents[0][section]) {
         List_Of_IDs = List_Of_IDs.concat(Object.keys( ID_Contents[0][section][item].contents ))
       }
-      Project = ID_Query(section, List_Of_IDs);
+      Project = ID_Query({"section":section, "query":List_Of_IDs});
     } 
     else if (type == "SPECIFIC") {    // Returns Specific Values from Nanos
       ids.forEach(id => { Project[`${section}.${id}`] = Key_Query(keys) })
@@ -179,7 +182,7 @@ module.exports = {
       return Tree;
 
       async function Get_Nano_Children(id, Tree) {
-        let Nano = await Nano_Get(user, ID_Query(section, [id], false));
+        let Nano = await Nano_Get(user, ID_Query({"section":section, "query":[id], "contents":false}));
         Nano = Nano[0][section][id];
         Tree.Parent_Id.length ? Tree.Child_Id.push(Nano.id) : Tree.Parent_Id.push(Nano.id);
         Object.keys(Tree.Parent_Nano).length === 0 ? Tree.Parent_Nano[Nano.id] = Nano : Tree.Child_Nano[Nano.id] = Nano;
@@ -199,26 +202,26 @@ module.exports = {
 
   // ==============
 
-  Account_Setup: function(uID) {
+  Account_Setup: async(uID) => {
     let check = Nano_Coll.find({uID: uID}, {$exists: true}).limit(1).toArray();
     if (check.length) {console.log("Nano_Account Already Exists"); return;}
 
     Nano_Account._id = uID;
-    Nano_Account.enc_key = crpyto.randomBytes(32);
+    Nano_Account.enc_key = crypto.randomBytes(32);
 
     let Account_Set = await Nano_Account_Set(Nano_Account);
 
     if (Account_Set) {
-      ["Documents", "Games", "Media", "Music", "Notes"].forEach(folder => {
+      ["Documents", "Games", "Media", "Music", "Notes"].forEach(async(folder) => {
         await module.exports.Write({
           "user": uID,
           "type": "Folder",
           "section": "main",
-          "parent": "_Main_",
+          "parent": "_MAIN_",
           "data": {
               "id": uuidv1(),
               "name": folder,
-              "parent": "_Main_",
+              "parent": "_MAIN_",
               "type": {
                 "file": false,
                 "mime": "FOLDER"
@@ -237,13 +240,13 @@ module.exports = {
   },
 }
 
-Short_Contents = function(fir, sec) {
+Short_Contents = function(fir={}, sec={}) {
   !fir.type ? fir.type = {} : fir.type;
-  return {...Contents_Item, ...{"name": fir.name || sec.name, "mime": fir.type.mime || sec.type.mime, "size": fir.size || sec.size, "time": fir.time || sec.time}}
+  return {...Contents_Item, ...{"name": fir.name || sec.name || "Unnamed", "mime": fir.type.mime || sec.type.mime || "UNKNOWN", "size": fir.size || sec.size || 1, "time": fir.time || sec.time || {"modified": {"stamp":Helper.timeNow()}} }}
 }
 
-ID_Query = function(section, Query, contents, created={}) {
-  Query.forEach(item => { created[`${section}.${item}${contents ? ".contents" : ""}`] = 1 });
+ID_Query = function({section, query, contents, internal}, created={}) {
+  query.forEach(item => { created[`${section}.${item}${contents ? ".contents" : ""}`] = 1; });
   return created;
 }
 
@@ -304,9 +307,4 @@ Nano_Account_Set = async(Account_Data) => {
   .catch(err => {console.log(`Couldnt Create Nano Account: ${err}`); return false; })
 }
 
-
-
-
-// console.log(module.exports.Read({
-
-// }))
+// module.exports.Account_Setup("56d0bc91-229e-4109-9fd5-d968386518a6");

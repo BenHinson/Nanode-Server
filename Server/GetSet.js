@@ -5,13 +5,14 @@ const Link_Coll = Mongo_Connect.getColl('link');
 const Download_Coll = Mongo_Connect.getColl('download');
 
 const Nano = require('./Nano.js');
-const Nord = require('../Nord.js');
-const Keys = require('../Keys.js');
+const Nord = require('./Nord.js');
+const Keys = require('./Keys.js');
 const Helper = require('./helper.js');
 
-const crpyto = require('crypto');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
+const cookie_sign = require('cookie-signature');
 const { nanoid } = require('nanoid');
 // const uuidv1 = require('uuid/v1');
 // const uuidv3 = require('uuid/v3');
@@ -35,7 +36,7 @@ module.exports = {
   
     return Account_Coll.insertOne({email: Email.toLowerCase(), password: Hashed_Password, userID: uID, cookieID: CookieID, key: crypto.randomBytes(32), settings: Helper.Settings_Template})
       .then(async() => {
-        await Nord.Nord_Create("Nanode.one", CookieID, uID); ////////////////////////////////////////////
+        await Nord.Nord_Create("Nanode.one", CookieID, uID);
         await Nano.Account_Setup(uID);
         return res.send({ "Acc_Server": "_Registered" })
       })

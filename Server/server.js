@@ -104,11 +104,10 @@ Mongo_Connect.connectToServer(function(err, client) {
   .on('connection', function(socket) {
     
     socket.on('ItemCreate', async (data) => {
-
       let Write = {
         "user": socket.uID,
         "type": data.type,
-        "section": data.section || "main",
+        "section": Helper.validateClient("section", data.section) ? data.section : "main",
         "parent": data.type == "Span" ? "homepage" : Helper.truncate(data.parent, 128),
         "data": data.type == "Span"
           ? {"name": Helper.truncate(data.name, 128)}
@@ -134,30 +133,32 @@ Mongo_Connect.connectToServer(function(err, client) {
 
       if (data.type.match(/Item|Folder|File|Span/i)) {
         if (await Nano.Write(Write)) {
-          let Result = await Nano.Read({"user": socket.uID, "type": (data.directory == "homepage" ? "HOME": "ID"), "section": data.section, "ids": [data.directory]});
-          if (Result) {Result[data.directory]; socket.emit('Directory', {"Parent": {"name": Result.name, "id": Result.id}, "Contents": Result.Contents}) }
+          let Result = await Nano.Read({"user": socket.uID, "type": "ID", "section": data.section, "ids": [data.directory]});
+          if (Result) {
+            Result = Result[data.directory] || Result;
+            socket.emit('Directory', {"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result}) };
         }
       }      
     })
 
     socket.on('ItemEdit', async (data) => {
+      let Edit = {
+        "user": socket.uID,
+        "type": data.action,
+        "section": Helper.validateClient("section", data.section) ? data.section : "main",
+        "id": data.ID,
+      };
 
-      if (data.Action == "Edit") {
-        let EditInfo = (data.Item == "Span") ? {"OldSpanName": data.ID, "NewSpanName": Helper.truncate(data.EditData.Name, 128)} : data.EditData;
-        await Nano_Writer.writeJSONObject(socket.uID, "Edit", data.ID, data.Item, EditInfo);
-      } 
-      else if (data.Action == "Delete") {
-        await Nano_Writer.writeJSONObject(socket.uID, "Delete", "Files", data.Item, data.ID);
-      }
-      else if (data.Action == "Move") {
-        if (!data.Path) {var emitDirectory = false;}
-        await Nano_Writer.writeJSONObject(socket.uID, "Edit", data.OID, "Move", {"To": data.To, "ToType": data.ToType})
-      }
+      if (data.action == "DATA") { Edit.changeTo = data.EditData; }
+      else if (data.action == "MOVE") { Edit.moveTo = data.To; }
 
-      if (emitDirectory != false && data.Path) {
-        await Nano_Reader.returnInformation(socket.uID, "Main_Contents", data.Path, "").then(function(Result) {
-          if (Result) { socket.emit('Directory', {"Parent": Result[0], "Contents": Result[1]}) }
-        });
+      if (await Nano.Edit(Edit)) {
+        // if (data.Path) { // Path states that we send back directory to User
+        //   let Result = await Nano.Read({"user": Edit.user, "type": "ID", "section": Edit.section, "ids": [data.Path]});
+        //   if (Result) {
+        //     Result = Result[data.Path] || Result; 
+        //     socket.emit('Directory', {"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result}) }
+        // }
       }
       return;
     })
@@ -167,14 +168,14 @@ Mongo_Connect.connectToServer(function(err, client) {
 
     socket.on('Share', async({Action, objectID, Params}) => {
       if (Action == "Link") {
-        var linkID = '';
+        let linkID = '';
         let file_name = uuidv3(objectID, socket.uID);
-        let Called_Information = await Nano_Reader.returnInformation(socket.uID, "Information", objectID, ["Share", "Type"]);
-        if (Called_Information[0] && Called_Information[0].Link) { linkID = Called_Information[0].Link.url; }
+        let Called_Information = await Nano.Read({"user": socket.uID, "type": "SPECIFIC", "section": Params.section, "ids": [objectID], "keys": ["share","type"]});
+        Called_Information = Called_Information[objectID];
+        if (Called_Information.share && Called_Information.share.link) { linkID = Called_Information.share.link.url; }
         else if (Called_Information) {
-          let mime = Called_Information[1].mimeT ? Called_Information[1].mimeT : "FOLDER";
-          linkID = await generateShareLinkID(socket.uID, objectID, file_name, mime);
-          await Nano_Writer.writeJSONObject(socket.uID, "Edit", objectID, "FileFolder", {"Share": {"Link": {"url": linkID}}})
+          linkID = await generateShareLinkID(socket.uID, objectID, file_name, Called_Information.type.mime);
+          await Nano.Edit({ "user": socket.uID, "type": "DATA", "section": Params.section, "id": objectID, "changeTo": {"share": {"link": {"url": linkID}}} })
         }
 
         let linkURL = 'https://link.nanode.one/'+linkID;
@@ -191,6 +192,7 @@ Mongo_Connect.connectToServer(function(err, client) {
 
 
     socket.on('downloadItems', async (For, DownloadItems) => {
+      console.log("Yeah... this is going to need some review. Potentially a whole rewrite. Nano.Read TREE should work though (downloadItems)"); return;
       if (For == "SELF" || For == "SHARE") {
         // Limit Download requests
         if (socket.uID) {
@@ -239,7 +241,7 @@ Mongo_Connect.connectToServer(function(err, client) {
     }
     generateDownloadLinkID = async (For, userID, Size, Contents, Title) => {
       let linkID = nanoid(24);
-      let linkinDB = await Nano_Reader.writeDownloadLink(linkID, For, userID, Size, Contents, Title);
+      let linkinDB = await GetSet.writeDownloadLink(linkID, For, userID, Size, Contents, Title);
       if (linkinDB === false) { return linkID = generateDownloadLinkID(For, userID, Size, Contents, Title); }
       return linkID;
     }
@@ -247,7 +249,7 @@ Mongo_Connect.connectToServer(function(err, client) {
     ////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////
 
-    socket.on('Codex', async (CallData) => {
+    socket.on('Codex', async (CallData) => {  console.log("Deprecated No...? Port Calls over to new Nano."); return;
 
       let Action = CallData.emitAction; let Codex = CallData.CodexWanted; let Path = CallData.CodexPath; let Data = CallData.Data; let itemNumber = CallData.itemNumber;
 
@@ -287,7 +289,7 @@ Mongo_Connect.connectToServer(function(err, client) {
       }
     })
 
-    socket.on('Bin', async (CallData) => {
+    socket.on('Bin', async (CallData) => {  console.log("Also Deprecated, Call Normally and set Section to Bin."); return;
 
       let Action = CallData.emitAction; let Path = CallData.binItem; let Of = CallData.Of
 
@@ -298,24 +300,17 @@ Mongo_Connect.connectToServer(function(err, client) {
 
 
 
-    const settingsTemplate = {"LastAc": "", "Dir": "Homepage", "Bin": "5", "LockF": 2, "Date": 0, "TimeZ": "0", "Theme": 0, "ViewT": 1, "HighL": "#8a97c5", "BGImg": ""};
     socket.on('CallSettings', async (action, data) => {
       if (socket.uID) {
         if (action == "Read") {
-          let settings = await Nano_Reader.Account_Get(socket.uID, ["settings"]);
-          if (typeof settings.settings == 'undefined' || settings.settings == false) {await Nano_Writer.Account_Write(socket.uID, "settings", settingsTemplate); }
+          let settings = await GetSet.Account_Get(socket.uID, ["settings"]);
+          if (typeof settings.settings == 'undefined' || settings.settings == false) {await GetSet.Account_Write(socket.uID, "settings", Helper.Settings_Template); }
           else { socket.emit('Settings', settings.settings) }
         } else if (action == "Write") { // writes settings one at a time.
-          let setData = {};
-          setData[data[0]] = data[1]
-          await Nano_Writer.Account_Write(socket.uID, "settings", setData);
+          await GetSet.Account_Write(socket.uID, "settings", { [data[0]]: data[1] });
         }
       } 
       else { socket.emit('NoLoggedSettings') }
     })
   })
 })
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////

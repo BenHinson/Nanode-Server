@@ -7,9 +7,6 @@ const corsOptions = {origin: 'https://account.Nanode.one'}
 const crypto = require('crypto');
 const validator = require('validator');
 
-const { nanoid } = require('nanoid');
-const cookie_sign = require('cookie-signature');
-
 const Nord = require('../Nord.js');
 const GetSet = require('../GetSet.js');
 

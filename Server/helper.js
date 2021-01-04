@@ -2,8 +2,6 @@ const parser = require('ua-parser-js');
 const Nanode_Keys = require('./Keys.js');
 const Nano = require('./Nano.js');
 
-const UUIDV1_Checker = /^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
-
 module.exports = {
 
   Base_Object: {
@@ -33,13 +31,17 @@ module.exports = {
     "BGImg": "",
   },
 
-  timeNow: function () { 
-    return new Date(Date.now()).toISOString();
+  validateClient: function(variable, input) {
+    switch (variable) {
+      case("section"): 
+        return input.match(/main|blocks|codex|bin/i) ? true : false; break;
+      case("nanoID"):
+      return input.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i) ? true : false; break;
+    }
   },
 
-  CheckConvertParam : function (param) {
-    if (param) {return param.match(UUIDV1_Checker) ? param : module.exports.capitalize(param)}
-    return param;
+  timeNow: function () { 
+    return new Date(Date.now()).toISOString();
   },
 
   BaseType: function(mime) {
@@ -66,10 +68,10 @@ module.exports = {
 
   securityChecker: async(Input, userID, Path, After, object) => {
 
+    if (Path.match(/home|homepage/i)) { return false; }
     console.log("Security Checker Requires a section. Must check all calls to securityChecker"); return false;
 
-
-    if (Path == "Homepage") { return false; }
+    
     // let securityLookup = object ? object : await Nano_Reader.returnInformation(userID, "Information", Path, ["Security"]);
     let securityLookup = object ? object : await Nano.Read({"user": userID, "type": "SPECIFIC", "section": (codex ? "codex" : "main"), "ids": [WantedURL], "keys": ["security"]});
     if (!securityLookup[0]) { return false; }
@@ -94,7 +96,7 @@ module.exports = {
     return secLevel;
   },
 
-  truncate: function(string, desired) {  // Shorten Length of String
+  truncate: function(string='', desired) {  // Shorten Length of String
     if (!string.length) {return string;}
     return (string.length > desired) ? string.substr(0, desired-1) : string;
   },
