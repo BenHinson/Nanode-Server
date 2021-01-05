@@ -66,14 +66,17 @@ module.exports = {
     return typeof parent_object[num+"_"+name] == 'undefined' ? (num == 0 ? name : num+"_"+name) : module.exports.dupeNameIncrement(parent_object, name, num+1);
   },
 
-  securityChecker: async(Input, userID, Path, After, object) => {
+  securityChecker: async({userID, Section, oID, Wanted, Input, Nano}) => {
 
-    if (Path.match(/home|homepage/i)) { return false; }
+    if (oID.match(/home|homepage/i)) { return false; }
+    
     console.log("Security Checker Requires a section. Must check all calls to securityChecker"); return false;
 
-    
     // let securityLookup = object ? object : await Nano_Reader.returnInformation(userID, "Information", Path, ["Security"]);
-    let securityLookup = object ? object : await Nano.Read({"user": userID, "type": "SPECIFIC", "section": (codex ? "codex" : "main"), "ids": [WantedURL], "keys": ["security"]});
+    let securityLookup = Nano ? Nano : await Nano.Read({"user": userID, "type": "SPECIFIC", "section": Section, "ids": [oID], "keys": ["security"]});
+    
+    console.log(securityLookup);
+
     if (!securityLookup[0]) { return false; }
   
     let level = 0;
@@ -83,8 +86,8 @@ module.exports = {
     if (securityLookup[0].pin) { level++; Type.push("Pin") }
     // if (securityLookup[0].Time)
   
-    if (After == "Amount") { return level; }
-    else if (After == "Access") {
+    if (Wanted == "Amount") { return level; }
+    else if (Wanted == "Access") {
       if (!Input) {  return Type.length >= 1 ? Type : false; }
       return JSON.stringify(securityLookup[0]) === JSON.stringify(Input) ? true : false;
     }
@@ -92,7 +95,8 @@ module.exports = {
   },
 
   securityValue: function(item, secLevel = 0) { // Convert security options to a numerical value
-    for (let key in item.Security) { if (item.Security[key].length || item.Security[key].length === undefined ) { secLevel++; }  }
+    if (!item.security) {return secLevel;}
+    for (let key in item.security) { if (item.security[key].length || item.security[key].length === undefined ) { secLevel++; }  }
     return secLevel;
   },
 

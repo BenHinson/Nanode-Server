@@ -82,7 +82,7 @@ Drive_Router.use('/user/:section?/:item?', async (req, res, next) => {
 
   if (req.headers.uID && section && item) {
     let nano = await Nano.Read({"user": req.headers.uID, "type": "ID", "section": section, "ids": [item], "contents": false});
-    if (nano[item]) {nano[item].security = Helper.securityValue(nano[item].security);}
+    if (nano[item]) {nano[item].security = Helper.securityValue(nano[item]);}
     return res.status(200).send( nano )
   } else { return res.status(400).send({"Error": "Invalid Request"}) }
   return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
@@ -94,11 +94,18 @@ Drive_Router.use('/folder/:oID', async (req, res, next) => {
   let section = Helper.validateClient(req.query.s) ? req.query.s : "main";
 
   if (userID && oID) {
-    let itemSecurity = await Helper.securityChecker(false, userID, oID, "Access");
+    let itemSecurity = await Helper.securityChecker({"userID":userID, "Section": section, "oID":oID, "Wanted": "Access"});
     if (itemSecurity) { return res.send({"Locked": itemSecurity}); return; }
     else {
-      let Result = await Nano.Read({"user": userID, "type": "ID", "section": section, "ids": [oID]});
-      if (Result) { Result = Result[oID] || Result; return res.send({"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result });}
+      let Result = await Nano.Read({"user": userID, "type": "ID", "section": section, "ids": [oID], "contents": false});
+      if (Result) { Result = Result[oID] || Result;
+        return res.send({
+          "Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"},
+          "Contents": Result.id
+            ? { [Result.id]: { "name": Result.name, "contents": Result.contents } } // For Folders
+            : Result // For Homepage
+        });
+      }
     }
   }
   return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
@@ -117,7 +124,7 @@ Drive_Router.post('/auth', async (req, res) => {
   console.log("Have a key sent to the user that unlocks it for the session. Various Reasons...")
   const {body} = req;
   if (body && req.headers.uID != "null") {
-    let access = await Helper.securityChecker(body.Entries, req.headers.uID, body.Item, "Access");
+    let access = await Helper.securityChecker({"Input":body.Entries, "userID":req.headers.uID, "oID":body.Item, "Wanted":"Access"});
     if (access === true) {
       let Result = await Nano.Read({"user": req.headers.uID, "type": "ID", "section": "main", "ids": [body.Item]});
       if (Result) { Result = Result[oID] || Result; return res.send({"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result });}

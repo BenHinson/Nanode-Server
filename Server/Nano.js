@@ -93,7 +93,8 @@ module.exports = {
   },
 
   Edit: async(Edit, Mongo={}) => {
-    const {user, type, section, id, changeTo={}, moveTo} = Edit;
+    const {user, type, section, id, changeTo} = Edit;
+    let {moveTo} = Edit;
   
     changeTo.time = {"modified": {"stamp": Helper.timeNow(), "who": user}};
 
@@ -103,16 +104,18 @@ module.exports = {
     current = current[id];
     
     if (type == "DATA" && changeTo) {
-      changeTo.name ? Mongo.$push = { [`${section}.${id}.previous`]: {$each: [changeTo.name], $slice: -5} } : '',
-      Mongo.$addFields = { [`${section}.${id}`]: changeTo };
+      changeTo.name ? Mongo.$push = { [`${section}.${id}.previous`]: {$each: [changeTo.name], $slice: -5} } : '';
+      Mongo.$set = Key_Set({ "Pre": [`${section}.${id}`], "Change": changeTo })
+
       if (!current.parent.match(/home|homepage/i)) {
-        Mongo.$set = { [`${section}.${current.parent}.contents.${id}`]: Short_Contents(changeTo, current) };
+        Mongo.$set[`${section}.${current.parent}.contents.${id}`] = Short_Contents(changeTo, current);
       }
     }
     else if (type == "MOVE" && moveTo) {
       Mongo.$set = {};
       const External = moveTo.match(/bin|main|codex|block/); // Dont use i tag: (_MAIN_ will match 'main' if not)
       if (moveTo == "bin") {return "Cannot Move to Bin"}
+      if (moveTo == "homepage" && section == "main") { moveTo = "_GENERAL_" };
   
       const New_Parent = External ? (moveTo == "main" ? await Nano_Get(user, {[`home.${moveTo}`]: 1}).then((res) => res[0]["home"][moveTo][0]) : "homepage" ) : moveTo;
 
@@ -146,7 +149,8 @@ module.exports = {
       }
     }
     else { return; }
-  
+
+    // console.log(Mongo); return;
     let Complete = await Nano_Set(user, Mongo);
     return Complete;
   },
@@ -196,6 +200,7 @@ module.exports = {
       }
     }
 
+    // console.log(Project);
     let Result = await Nano_Get(user, Project);
     return Result[0][section] || Result[0];
   },
@@ -241,8 +246,8 @@ module.exports = {
 }
 
 Short_Contents = function(fir={}, sec={}) {
-  !fir.type ? fir.type = {} : fir.type;
-  return {...Contents_Item, ...{"name": fir.name || sec.name || "Unnamed", "mime": fir.type.mime || sec.type.mime || "UNKNOWN", "size": fir.size || sec.size || 1, "time": fir.time || sec.time || {"modified": {"stamp":Helper.timeNow()}} }}
+  let ItemsType = fir.type || sec.type || {};
+  return {...Contents_Item, ...{"name": fir.name || sec.name || "Unnamed", "mime": ItemsType.mime ||ItemsType.mime || "UNKNOWN", "size": fir.size || sec.size || 1, "color": fir.color || sec.color || '', "time": fir.time || sec.time || {"modified": {"stamp":Helper.timeNow()}} }};
 }
 
 ID_Query = function({section, query, contents, internal}, created={}) {
@@ -262,7 +267,10 @@ Key_Query = function(Keys, created={}) {
 
 Key_Set = function(Set, created={}) {
   const {Pre, Change, Negative} = Set;
-  for (const [key, value] of Object.entries(Change)) { created[`${Pre}.${key}`] = (Negative ? -Math.abs(value) : value) };
+  for (let [key, value] of Object.entries(Change)) { 
+    typeof value == "object"
+      ? created[`${Pre}.${key+="."+Object.keys(value)[0]}`] = (Negative ? -Math.abs(value) : value[Object.keys(value)[0]])
+      : created[`${Pre}.${key}`] = (Negative ? -Math.abs(value) : value)}
   return created;
 }
 

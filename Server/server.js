@@ -104,13 +104,17 @@ Mongo_Connect.connectToServer(function(err, client) {
   .on('connection', function(socket) {
     
     socket.on('ItemCreate', async (data) => {
+
       let Write = {
         "user": socket.uID,
         "type": data.type,
         "section": Helper.validateClient("section", data.section) ? data.section : "main",
         "parent": data.type == "Span" ? "homepage" : Helper.truncate(data.parent, 128),
         "data": data.type == "Span"
-          ? {"name": Helper.truncate(data.name, 128)}
+          ? {
+            "id": uuidv1(),
+            "name": Helper.truncate(data.name, 128)
+          }
           : {
             "id": uuidv1(),
             "name": Helper.truncate(data.name, 128),
@@ -119,9 +123,12 @@ Mongo_Connect.connectToServer(function(err, client) {
               "file": false,
               "mime": "FOLDER"
             },
-            "security": {"pass": Helper.truncate(data.Options.pass, 256), "Pin": Helper.truncate(data.Options.pPin, 256)},
-            "colour": data.Options.colour,
-            "description": Helper.truncate(data.Options.description, 512),
+            "security": {
+              "pass": Helper.truncate(data.options.pass, 256) || '', 
+              "pin": Helper.truncate(data.options.pin, 256) || ''
+            },
+            "color": data.options.color || '',
+            "description": Helper.truncate(data.options.description, 512) || '',
             "time": {
               "created": {
                 "stamp": Helper.timeNow(),
@@ -133,7 +140,7 @@ Mongo_Connect.connectToServer(function(err, client) {
 
       if (data.type.match(/Item|Folder|File|Span/i)) {
         if (await Nano.Write(Write)) {
-          let Result = await Nano.Read({"user": socket.uID, "type": "ID", "section": data.section, "ids": [data.directory]});
+          let Result = await Nano.Read({"user": Write.user, "type": "ID", "section": Write.section, "ids": [data.Path]});
           if (Result) {
             Result = Result[data.directory] || Result;
             socket.emit('Directory', {"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result}) };
@@ -152,13 +159,15 @@ Mongo_Connect.connectToServer(function(err, client) {
       if (data.action == "DATA") { Edit.changeTo = data.EditData; }
       else if (data.action == "MOVE") { Edit.moveTo = data.To; }
 
+      // console.log(Edit); return;
+
       if (await Nano.Edit(Edit)) {
-        // if (data.Path) { // Path states that we send back directory to User
-        //   let Result = await Nano.Read({"user": Edit.user, "type": "ID", "section": Edit.section, "ids": [data.Path]});
-        //   if (Result) {
-        //     Result = Result[data.Path] || Result; 
-        //     socket.emit('Directory', {"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result}) }
-        // }
+        if (data.Path) { // Path states that we send back directory to User
+          let Result = await Nano.Read({"user": Edit.user, "type": "ID", "section": Edit.section, "ids": [data.Path]});
+          if (Result) {
+            Result = Result[data.Path] || Result; 
+            socket.emit('Directory', {"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result}) }
+        }
       }
       return;
     })
