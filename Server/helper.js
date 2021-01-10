@@ -125,4 +125,8 @@ module.exports = {
     }
     return Device_Difference > 1 ? false : true;
   },
+
+  ErrorPage: function(res) {
+    return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
+  },
 }

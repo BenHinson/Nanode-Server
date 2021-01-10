@@ -40,38 +40,40 @@ Link_Router.use('/download/preview/:id', cors(corsOptions), async(req, res) => {
   if (typeof item != 'undefined' && Number.isInteger(item)) {
     await GetSet.readDownloadLink(req.params.id).then(function(result) {
       if (result.for == "SHARE") {
-        fs.readFile('F:\\Nanode\\UsersContent\\'+result.preview[item].File, function(err, data) {
-          if (err) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); } else {
+        fs.readFile('F:\\Nanode\\Files\\Mass\\'+result.preview[item].File, function(err, data) {
+          if (err) { return Helper.ErrorPage(res); } else {
             res.setHeader("Content-Type", result.preview[item].Mime);
             res.writeHead(200);
             res.end(data);
+            return;
           }
         })
       }
     })
+    return;
   }
-  // return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
+  return Helper.ErrorPage(res);
 })
 
 Link_Router.use('/download/a/:id', async(req, res) => {
   await GetSet.readDownloadLink(req.params.id).then(function(result) {
-    if (result.for == "SELF") { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); }
+    if (result.for == "SELF") { return Helper.ErrorPage(res); }
     else if (result.for == "SHARE") {
-      return res.download("F:\\Nanode\\UserDownloads\\Nanode_"+result.url+".zip", function(err) {
-        if (err) {return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');}
+      return res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", function(err) {
+        if (err) {return Helper.ErrorPage(res);}
       })
     }
-  }).catch((err) => { console.log(err); return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); })
+  }).catch((err) => { console.log(err); return Helper.ErrorPage(res); })
 })
 
 Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
   let Account = await Nord.Check("HTTP", req, res);
   let userID = Account.uID;
   await GetSet.readDownloadLink(req.params.id).then(function(result) {
-    if (result === false || (result.for == "SELF" && userID != result.owner)) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); }
+    if (result === false || (result.for == "SELF" && userID != result.owner)) { return Helper.ErrorPage(res); }
     if (result.for == "SELF" && userID == result.owner) {
-      res.download("F:\\Nanode\\UserDownloads\\Nanode_"+result.url+".zip", function(err) {
-        if (err) {res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');}
+      res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", function(err) {
+        if (err) {return Helper.ErrorPage(res);}
       })
     } else {
       res.render('F:\\Nanode\\Nanode Client\\views\\download.ejs', {
@@ -87,15 +89,15 @@ Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
         ejs_scanned: result.scanned
       })
     }
-  }).catch((err) => { console.log(err); return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); })
+  }).catch((err) => { console.log(err); return Helper.ErrorPage(res); })
 })
 
 Link_Router.use('/:link', cors(corsOptions), async(req, res) => {
   let fileName_mimeType = await GetSet.readShareLink(req.params.link).then(function(result) {
-    if (result === false) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');; }
+    if (result === false) { return Helper.ErrorPage(res); }
     if (result.mime != "FOLDER") {
-      fs.readFile('F:\\Nanode\\UsersContent\\'+result.file, function(err, data) {
-        if (err) {return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); } else {
+      fs.readFile('F:\\Nanode\\Files\\Mass\\'+result.file, function(err, data) {
+        if (err) {return Helper.ErrorPage(res); } else {
           res.setHeader("Content-Type", result.mime);
           res.writeHead(200);
           res.end(data);
@@ -105,9 +107,9 @@ Link_Router.use('/:link', cors(corsOptions), async(req, res) => {
     if (result.mime == "FOLDER") {
       console.log(result)
       console.log("Folder Support Soon");
-      return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');;
+      return Helper.ErrorPage(res);
     }
-  }).catch((err) => { console.log(err); return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); })
+  }).catch((err) => { console.log(err); return Helper.ErrorPage(res); })
 })
 
 Link_Router.get('/', async (req, res) => { res.redirect('https://Nanode.one'); })

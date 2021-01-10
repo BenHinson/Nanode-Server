@@ -22,7 +22,8 @@ const Helper = require('../helper.js');
 
 // const Encryptor = require('../Encryptor.js');
 
-const codexConverter = {1: "Text", 2: "Video", 3: "Audio"}
+const codexConverter = {1: "Text", 2: "Video", 3: "Audio"};
+const UploadDrive = 'F';
 
 const loadJsonFile = require('load-json-file');
 
@@ -42,7 +43,7 @@ Drive_Router.use(csp({
   }
 }));
 
-Drive_Router.use(Nord.Middle)
+Drive_Router.use(Nord.Middle);
 
 
 Drive_Router.get('/', async (req, res) => { res.sendFile('F://Nanode/Nanode Client/views/drive.html', {extensions: ['html', 'htm']}) })
@@ -51,17 +52,17 @@ Drive_Router.use('/storage/:content', async (req, res, next) => {
   let userID = req.headers.uID;
   
   let WantedURL = req.params.content;
+  if (!Helper.validateClient('nanoID', WantedURL)) {return Helper.ErrorPage(res)};
   let imgHeight = (req.query.h == "null") ? null : parseInt(req.query.h || null);
   let imgWidth = (req.query.w == "null") ? null : parseInt(req.query.w || null);
   let codex = parseInt(req.query.cdx);
 
   let Type = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": (codex ? "codex" : "main"), "ids": [WantedURL], "keys": ["type"]});
-  console.log(Type);
-  Type = Type[WantedURL];
+  Type = Type[WantedURL].type;
 
   if (typeof Type !== 'undefined' && Type.mime) {
-    fs.readFile(`F:\\Nanode\\UsersContent\\${uuidv3(WantedURL, userID)}`, function(err, data) {
-      if (err) {console.log("File Not Found"); return res.status(404);}
+    fs.readFile(`F:\\Nanode\\Files\\Mass\\${uuidv3(WantedURL, userID)}`, function(err, data) {
+      if (err) {console.log("File Not Found"); return Helper.ErrorPage(res);}
       else {
         res.setHeader('Content-Type', Type.mime);
         res.writeHead(200);
@@ -82,10 +83,13 @@ Drive_Router.use('/user/:section?/:item?', async (req, res, next) => {
 
   if (req.headers.uID && section && item) {
     let nano = await Nano.Read({"user": req.headers.uID, "type": "ID", "section": section, "ids": [item], "contents": false});
-    if (nano[item]) {nano[item].security = Helper.securityValue(nano[item]);}
+    if (nano[item]) {
+      nano[item].security = Helper.securityValue(nano[item]);
+      nano[item].contents = {};
+    }
     return res.status(200).send( nano )
   } else { return res.status(400).send({"Error": "Invalid Request"}) }
-  return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
+  return Helper.ErrorPage(res);
 })
 
 Drive_Router.use('/folder/:oID', async (req, res, next) => {
@@ -108,14 +112,17 @@ Drive_Router.use('/folder/:oID', async (req, res, next) => {
       }
     }
   }
-  return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html');
+  return Helper.ErrorPage(res);
 })
 
 Drive_Router.use('/settings', async (req, res, next) => {
   if (req.headers.uID != "null") {
-    let settings = await GetSet.Account_Get(req.headers.uID, ["settings"]);
-    if (typeof settings.settings == 'undefined' || settings.settings == false) {await GetSet.Account_Write(req.headers.uID, "settings", Helper.Settings_Template); }
-    else { res.send({"Settings": settings.settings}) }
+    let accountData = await GetSet.Account_Get(req.headers.uID, ["settings", "plan"]);
+    accountData = accountData[0];
+    if (typeof accountData.settings == 'undefined' || accountData.settings == false) {
+      await GetSet.Account_Write({ "user": req.headers.uID, "type": "Set", "parentKey": "settings", "data": Helper.Settings_Template }); 
+    }
+    else { res.send({"Settings": accountData.settings, "Plan": {"max": accountData.plan.max, "used": accountData.plan.used}}) }
   } 
   else { res.send({"Error": "NOT_LOGGED_IN"}) }
 })
@@ -151,13 +158,11 @@ Drive_Router.post('/upload/', async (req, res, next) => {
       index: body.chunk_info.index,
       total: body.chunk_info.total_chunks,
       FileArray: Buffer.from(body.file),
-      Meta: body.meta,
     })
     
     if (result.written) { // Entire File written, add to Upload_Tree and request next file.
       // Encrypt File here
       await Write_To_User_File(req.headers.uID, result.file_oID, body.meta);
-      // Add the Size to the users account.
       return res.status(200).json({ "status": "Complete" });
     }
     return res.status(200).json({ "status": result });
@@ -167,11 +172,11 @@ Drive_Router.post('/upload/', async (req, res, next) => {
 })
 
 File_Write = async(chunk) => {
-  const {user, id, index, total, FileArray, Meta} = chunk;
+  const {user, id, index, total, FileArray} = chunk;
 
-  const Chunk_Storage = 'F://Nanode/Upload/Chunks/';
-  // const End_Storage = 'F://Nanode/Upload/Complete/';
-  const End_Storage = 'F://Nanode/UsersContent/';
+  const Chunk_Storage = 'F://Nanode/Files/Chunks/';
+  const End_Storage = `${UploadDrive}://Nanode/Files/Mass/`;
+  // const End_Storage = `${UploadDrive}://Nanode/Files/Trail/`;
 
   let ThisChunkName = Chunk_Storage+["CHUNK", id, index].join('-');
   let PreviousChunkName = Chunk_Storage+["CHUNK", id, index-1].join('-');
@@ -190,60 +195,59 @@ File_Write = async(chunk) => {
   return "Success";
 }
 
-Write_To_User_File = async(user, oID, item) => {
+Write_To_User_File = async(user, oID, meta) => {
   if (!Upload_Object_Tree[user]) { Upload_Object_Tree[user] = []; }
-  let relative_path = item.relative_path.split('/');
-  let fID = await Create_Folders(relative_path.slice(0, -1), user, item);
-  await Create_New_Item(user, oID, fID ?? item.parent, item);
+  let relative_path = meta.relative_path.split('/');
+  let fID = await Create_Folders(relative_path.slice(0, -1), user, meta);
+  await Create_New_Item(user, oID, fID ?? meta.parent, meta);
 }
-Create_Folders = async(relative_path, user, item) => {
+Create_Folders = async(relative_path, user, meta) => {
   let previous_Folder;
   for (let i=0; i<relative_path.length; i++) {
     if (!relative_path[i]) { continue; }
-  	let found = Upload_Object_Tree[user].find(item => item[relative_path[i]]);
+  	let found = Upload_Object_Tree[user].find(item => meta[relative_path[i]]);
   	if (found) { previous_Folder = found[relative_path[i]].id; continue; }
     let fID = uuidv1();
     Upload_Object_Tree[user].push( {[relative_path[i]]: {"id": fID}});
-    await Create_New_Item(user, fID, previous_Folder ?? item.parent, {"name": relative_path[i], "span": item.span});
+    await Create_New_Item(user, fID, previous_Folder ?? meta.parent, {"section": meta.section, "name": relative_path[i]});
     previous_Folder = fID;
   }
   return previous_Folder;
-  // let lastFolder = Upload_Object_Tree[user].find(item => item[relative_path.slice(-1)]); // I may be able to remove these and replace with the previous_Folder variable;
+  // let lastFolder = Upload_Object_Tree[user].find(item => meta[relative_path.slice(-1)]); // I may be able to remove these and replace with the previous_Folder variable;
   // return relative_path.length ? lastFolder[relative_path.slice(-1)].id : null; // I may be able to remove these and replace with the previous_Folder variable;
 }
-Create_New_Item = async(user, oID, pID, item) => {
+Create_New_Item = async(user, oID, pID, meta) => {
   // oID: object_ID, pID: parent_ID
-  const {section, name, type, size, isFi} = item;
-  let datenow = Helper.datenow();
+  const {section, name, type, size, isFi, modified} = meta;
+  let datenow = Helper.timeNow();
 
   let ItemData = {
     "id": oID,
     "name": Helper.truncate(name, 128),
     "parent": Helper.truncate(pID, 128),
-    "size": size ?? '',
+    "size": size ?? 1,
     "type": {
-      "file": isFi,
-      "mime": type
+      "file": isFi ?? 'FOLDER',
+      "mime": type ?? 'FOLDER'
     },
     "time": {
       "created": {
         "stamp": datenow,
         "who": user
-      },
-      "modified": {
-        "stamp": item.modified ? new Date(item.modified).toISOString() : datenow,
-        "who": user
       }
     }
   }
+  modified ? ItemData.time['modified'] = {"stamp": new Date(modified).toISOString(), "who": user} : '';
+  isFi ? ItemData['contents'] = {"drive": UploadDrive, "file": uuidv3(oID, user)} : '';
 
-  await Nano.Write({
+  let written = await Nano.Write({
     "user": user,
-    "type": type,
-    "section": section,
+    "type": "Item",
+    "section": Helper.validateClient("section", section) ? section : 'main',
     "parent": Helper.truncate(pID, 128),
     "data": ItemData
   })
+  if (written) {await GetSet.Account_Write({ "user": user, "type": "Increment", "parentKey": "plan", "childKey": "used", "data": written})};
 }
 
 

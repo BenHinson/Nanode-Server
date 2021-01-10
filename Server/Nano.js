@@ -14,6 +14,7 @@ const uuidv1 = require('uuid/v1');
 
 const Nano_Account = {
   "size": {
+    "max": (10 * 1024 * 1024 * 1024), // 10 GB
     "total": {},
     "bin": {}
   },
@@ -89,7 +90,7 @@ module.exports = {
     } else {return false;}
     
     let Written = await Nano_Set(user, Mongo);
-    return Written ? true : false;
+    return Written ? data.size || 1 : false;
   },
 
   Edit: async(Edit, Mongo={}) => {

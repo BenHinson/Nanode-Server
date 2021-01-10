@@ -175,16 +175,16 @@ Mongo_Connect.connectToServer(function(err, client) {
     ////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////
 
-    socket.on('Share', async({Action, objectID, Params}) => {
+    socket.on('Share', async({Action, objectID, section, Params}) => {
       if (Action == "Link") {
         let linkID = '';
         let file_name = uuidv3(objectID, socket.uID);
-        let Called_Information = await Nano.Read({"user": socket.uID, "type": "SPECIFIC", "section": Params.section, "ids": [objectID], "keys": ["share","type"]});
+        let Called_Information = await Nano.Read({"user": socket.uID, "type": "SPECIFIC", "section": section, "ids": [objectID], "keys": ["share","type"]});
         Called_Information = Called_Information[objectID];
         if (Called_Information.share && Called_Information.share.link) { linkID = Called_Information.share.link.url; }
         else if (Called_Information) {
           linkID = await generateShareLinkID(socket.uID, objectID, file_name, Called_Information.type.mime);
-          await Nano.Edit({ "user": socket.uID, "type": "DATA", "section": Params.section, "id": objectID, "changeTo": {"share": {"link": {"url": linkID}}} })
+          await Nano.Edit({ "user": socket.uID, "type": "DATA", "section": section, "id": objectID, "changeTo": {"share": {"link": {"url": linkID}}} })
         }
 
         let linkURL = 'https://link.nanode.one/'+linkID;
@@ -194,11 +194,11 @@ Mongo_Connect.connectToServer(function(err, client) {
 
     generateShareLinkID = async (userID, objectID, file_name, mime) => {
       let linkID = nanoid(16);
-      let linkinDB = await Nano_Writer.writeShareLink(linkID, userID, objectID, file_name, mime);
+      let linkinDB = await GetSet.writeShareLink(linkID, userID, objectID, file_name, mime);
       if (linkinDB === false) { return linkID = generateShareLinkID(userID, objectID, file_name, mime); }
       return linkID;
     }
-
+ 
 
     socket.on('downloadItems', async (For, DownloadItems) => {
       console.log("Yeah... this is going to need some review. Potentially a whole rewrite. Nano.Read TREE should work though (downloadItems)"); return;
@@ -223,7 +223,7 @@ Mongo_Connect.connectToServer(function(err, client) {
       async function zipLooper(Items, Parent) {
         for (Contents in Items) {
           if (Items[Contents].Name) {
-            let fileData = fs.readFileSync( "F:\\Nanode\\UsersContent\\"+Items[Contents].File_Name);
+            let fileData = fs.readFileSync( "F:\\Nanode\\Files\\Mass\\"+Items[Contents].File_Name);
             let fileName = (Items[Contents].Name.split(".").shift())+"."+mime.extension(Items[Contents].Mime);
             Parent.file(fileName, fileData);
             zipSize += Items[Contents].Size;
@@ -242,7 +242,7 @@ Mongo_Connect.connectToServer(function(err, client) {
 
       zip
         .generateNodeStream({type:'nodebuffer',streamFiles:true})
-        .pipe(fs.createWriteStream("F:\\Nanode\\UserDownloads\\Nanode_"+downloadID+".zip"))
+        .pipe(fs.createWriteStream("F:\\Nanode\\Files\\Downloads\\Nanode_"+downloadID+".zip"))
         .on('finish', function() {
           let downloadURL = 'https://link.nanode.one/download/'+downloadID;
           socket.emit('Link_Return', "DOWNLOAD", downloadURL);
@@ -313,10 +313,11 @@ Mongo_Connect.connectToServer(function(err, client) {
       if (socket.uID) {
         if (action == "Read") {
           let settings = await GetSet.Account_Get(socket.uID, ["settings"]);
-          if (typeof settings.settings == 'undefined' || settings.settings == false) {await GetSet.Account_Write(socket.uID, "settings", Helper.Settings_Template); }
+          if (typeof settings.settings == 'undefined' || settings.settings == false) {
+            await GetSet.Account_Write({ "user": socket.uID, "type": "Set", "parentKey": "settings", "data": Helper.Settings_Template }); }
           else { socket.emit('Settings', settings.settings) }
         } else if (action == "Write") { // writes settings one at a time.
-          await GetSet.Account_Write(socket.uID, "settings", { [data[0]]: data[1] });
+          await GetSet.Account_Write({ "user": socket.uID, "type": "Set", "parentKey": "settings", "childKey": data[0], "data": data[1] });
         }
       } 
       else { socket.emit('NoLoggedSettings') }

@@ -34,7 +34,7 @@ module.exports = {
     let uID = uuidv4();
     let CookieID = nanoid();
   
-    return Account_Coll.insertOne({email: Email.toLowerCase(), password: Hashed_Password, userID: uID, cookieID: CookieID, key: crypto.randomBytes(32), settings: Helper.Settings_Template})
+    return Account_Coll.insertOne({"email": Email.toLowerCase(), "password": Hashed_Password, "userID": uID, "cookieID": CookieID, "key": crypto.randomBytes(32), "settings": Helper.Settings_Template, "plan": (10 * 1024 * 1024 * 1024) })
       .then(async() => {
         await Nord.Nord_Create("Nanode.one", CookieID, uID);
         await Nano.Account_Setup(uID);
@@ -42,25 +42,24 @@ module.exports = {
       })
       .catch(err => { console.error(`Couldn't Create Account: ${err}`); return false; })
   },
-  
-  Account_Write: async (userID, writeTo, data) => {
-    // writeTo = "settings" , data = {"reviews": {"username": "zen", "comment": "traaaash"} }
-    let newData = {}
-    let current = await module.exports.Account_Get(userID, [writeTo]);
 
-    if (typeof current[writeTo] != 'undefined') { newData[writeTo] = {...current[writeTo], ...data};
-    } else { newData[writeTo] = data; }
-    // newData[writeTo] = {...(current[writeTo] || {}), ...data}
+  Account_Write: async(Params) => {
+    const {user, type, parentKey, childKey, data} = Params;
+    let MongoEdit = {};
   
-    return Account_Coll.updateOne({userID: userID}, {$set: newData}, {upsert: true})
-    .then(result => { return true })
+    if (type == "Increment") {  MongoEdit.$inc = { [`${parentKey}.${childKey}`]: data || 1 } }
+    else if (type == "Set") { MongoEdit.$set = { [`${parentKey}.${childKey ? childKey : ''}`]: data } }
+    else {return false;}
+  
+    return Account_Coll.updateOne( {"userID": user}, MongoEdit )
+    .then(result => {return true})
     .catch(err => {console.error(`Couldn't update account info:  ${err}`); return false; })
   },
   
   writeShareLink: async(linkID, userID, objectID, file, mime) => {
     return Link_Coll.insertOne({url: linkID, owner: userID, object: objectID, file: file, mime: mime})
     .then(result => {
-      module.exports.Account_Write(userID, "share_links", {linkID: {"file": file}});
+      module.exports.Account_Write({ "user": userID, "type": "Set", "parentKey":"share_links", "childKey":linkID, "data": {"file": file} });
       return true;
     })
     .catch(err => {console.error(`Couldn't write Link ${err}`); return false; })
@@ -72,7 +71,7 @@ module.exports = {
     Contents = Contents.map(obj => ({Name: obj.Name, Mime: obj.Mime}))
     return Download_Coll.insertOne({url: linkID, for: For, owner: userID, title: Title, size: Size, contents: Contents, preview: Preview})
     .then(result => {
-      if (For == "SHARE") {module.exports.Account_Write(userID, "download_links", {linkID: {"title": Title, "size": Size, "items": Contents.length}});}
+      if (For == "SHARE") {module.exports.Account_Write({ "user": userID, "type":"Set", "parentKey": "download_links", "childKey": linkID, "data": {"title": Title, "size": Size, "items": Contents.length} });}
       return true;
     })
     .catch(err => {console.error(`Couldn't write Link ${err}`); return false; })
@@ -80,12 +79,15 @@ module.exports = {
 
   // =====================  READ  =====================
 
-  Account_Get: async (userID, wanted) => {
-    // wanted = ["username", "userID"]
-    return Account_Coll.find({userID: userID}, {$exists: true})
-    .toArray()
-    .then(account => { return {...account, ...{"password": "BLOCKED"}} })
-    .catch((err) => { return {}; })
+  Account_Get: async(uID, query) => {
+    let Project = {};
+    ["password", "cookieID", "key"].forEach(Key => delete query[Key]);
+    query.forEach(item => { Project[item] = 1; });
+
+    return await Account_Coll.aggregate([
+      { $match: { 'userID': uID } },
+      { $project: Project }
+    ]).toArray();
   },
 
   readShareLink: async (linkID) => {
