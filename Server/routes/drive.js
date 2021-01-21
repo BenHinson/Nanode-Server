@@ -10,26 +10,28 @@ const bodyParser = require('body-parser');
 
 const mime = require('mime');
 const sharp = require('sharp');
+const JSZip = require("jszip");
 
 const crypto = require('crypto');
 const uuidv1 = require('uuid/v1');
 const uuidv3 = require('uuid/v3');
+const { nanoid } = require('nanoid');
 
 const Nano = require('../Nano.js');
 const Nord = require('../Nord.js');
 const GetSet = require('../GetSet.js');
 const Helper = require('../helper.js');
+const Send = require('../Send.js');
 
 // const Encryptor = require('../Encryptor.js');
 
 const codexConverter = {1: "Text", 2: "Video", 3: "Audio"};
 const UploadDrive = 'F';
 
-const loadJsonFile = require('load-json-file');
-
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
 //////////////////////////////////////////////////////////////////////
+
 
 Drive_Router.use((req, res, next) => {res.locals.nonce = crypto.randomBytes(16).toString('hex');next();});
 Drive_Router.use(bodyParser.urlencoded({extended: true}));
@@ -55,9 +57,10 @@ Drive_Router.use('/storage/:content', async (req, res, next) => {
   if (!Helper.validateClient('nanoID', WantedURL)) {return Helper.ErrorPage(res)};
   let imgHeight = (req.query.h == "null") ? null : parseInt(req.query.h || null);
   let imgWidth = (req.query.w == "null") ? null : parseInt(req.query.w || null);
-  let codex = parseInt(req.query.cdx);
 
-  let Type = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": (codex ? "codex" : "main"), "ids": [WantedURL], "keys": ["type"]});
+  let codex = parseInt(req.query.cdx); // SEND CODEX THROUGH A DIFFERNT URL.
+
+  let Type = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": "main", "ids": [WantedURL], "keys": ["type"]});
   Type = Type[WantedURL].type;
 
   if (typeof Type !== 'undefined' && Type.mime) {
@@ -66,7 +69,7 @@ Drive_Router.use('/storage/:content', async (req, res, next) => {
       else {
         res.setHeader('Content-Type', Type.mime);
         res.writeHead(200);
-        if (!codex && Type.file && !Type.mime.includes("svg")) {
+        if (!codex && Type.mime.includes('image') && !Type.mime.includes("svg")) {
           sharp(data)
           .resize({fit: sharp.fit.contain, width: imgWidth || null, height: imgHeight || null})
           .toBuffer((err, data, info) => { return res.end(data); })
@@ -95,21 +98,16 @@ Drive_Router.use('/user/:section?/:item?', async (req, res, next) => {
 Drive_Router.use('/folder/:oID', async (req, res, next) => {
   let userID = req.headers.uID;
   let oID = req.params.oID.replace('$', '');
-  let section = Helper.validateClient(req.query.s) ? req.query.s : "main";
+  let section = Helper.validateClient("section", req.query.s) ? req.query.s : "main";
+  let subSection = Helper.validateClient('subSection', req.query.sub) ? req.query.sub : undefined;
 
-  if (userID && oID) {
-    let itemSecurity = await Helper.securityChecker({"userID":userID, "Section": section, "oID":oID, "Wanted": "Access"});
-    if (itemSecurity) { return res.send({"Locked": itemSecurity}); return; }
+  if (userID && oID && section) {
+    let itemSecurity = await GetSet.securityChecker({"userID":userID, "section": section, "oID":oID, "wanted": "Access"});
+    if (itemSecurity) { return res.send({"Auth": itemSecurity, "Item": oID}); return; }
     else {
-      let Result = await Nano.Read({"user": userID, "type": "ID", "section": section, "ids": [oID], "contents": false});
-      if (Result) { Result = Result[oID] || Result;
-        return res.send({
-          "Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"},
-          "Contents": Result.id
-            ? { [Result.id]: { "name": Result.name, "contents": Result.contents } } // For Folders
-            : Result // For Homepage
-        });
-      }
+      return await Send.Read_Send_Contents( 
+        { "user":userID,  "type":'ID',  "section":section,  "subSection":subSection,  "path":[oID],  "contents":false },
+        { "ConType":"HTTP",  "ConLink":res } );
     }
   }
   return Helper.ErrorPage(res);
@@ -127,22 +125,73 @@ Drive_Router.use('/settings', async (req, res, next) => {
   else { res.send({"Error": "NOT_LOGGED_IN"}) }
 })
 
+// ============ POST ============
+
+Drive_Router.post('/download', async(req, res) => {
+  const {body} = req;
+  if (body && body.FOR && body.NAME && body.ITEMS && body.SECTION && req.headers.uID != 'null') {
+    
+    let zip = new JSZip();
+    let zipData = {"size": 0, "contents": [], "title": body.NAME || 'Nanode_Collection'};
+
+    for (let i=0; i<body.ITEMS.length; i++) {
+      let itemsTree = await Nano.Read({"user": req.headers.uID, "type": "TREE", "section": body.SECTION, "ids": [body.ITEMS[i]], "contents": false});
+
+      await Zip_Set( itemsTree.Parent_Nano[ itemsTree.Parent_Id[0]] , zip);
+
+      async function Zip_Set(Nano, Parent) {
+        if (Nano.type.file) {
+          await Write_File_To_Zip(Nano, Parent, zipData);
+        } else {
+          SubFolder = Parent.folder(Nano.name || 'Folder_'+Nano.id);
+          for (const [NanoID, NanoData] of Object.entries(Nano.contents))  {
+            await Zip_Set( itemsTree.Child_Nano[ NanoID ], SubFolder )
+          }
+        }
+      }
+    }
+
+    let downloadID = await GetSet.writeDownloadLink(nanoid(24), body.FOR, req.headers.uID, zipData);
+    if (downloadID) {
+      zip
+        .generateNodeStream({type:'nodebuffer',streamFiles:true})
+        .pipe(fs.createWriteStream("F:\\Nanode\\Files\\Downloads\\Nanode_"+downloadID+".zip"))
+        .on('finish', function() { console.log("finished Writing"); res.status(200).send({"Link": downloadID}); })
+      return;
+    }
+  }
+  return res.status(401).send({"Error": "Invalid"});
+})
+Write_File_To_Zip = async(Nano, Parent, zipData) => {
+  await fs.promises.readFile( 'F:\\Nanode\\Files\\Mass\\'+Nano.contents.file )
+    .then((FileData) => {
+      Parent.file( (Nano.name.split('.').shift())+"."+mime.getExtension(Nano.type.mime), FileData);
+      zipData.size += Nano.size;
+      zipData.contents.push( {"Name": Nano.name, "Mime": Nano.type.mime} );
+    })
+    .catch(err => {console.log('Couldnt find file '+Nano.contents.file); return 'Failed To Read'});
+}
+
+
+
 Drive_Router.post('/auth', async (req, res) => {
-  console.log("Have a key sent to the user that unlocks it for the session. Various Reasons...")
+  // console.log("Have a key sent to the user that unlocks it for the session. Various Reasons...");
   const {body} = req;
   if (body && req.headers.uID != "null") {
-    let access = await Helper.securityChecker({"Input":body.Entries, "userID":req.headers.uID, "oID":body.Item, "Wanted":"Access"});
+    let {oID, section, entries} = body;
+    let access = await GetSet.securityChecker({"input":entries, "userID":req.headers.uID, "section": section, "oID":oID, "wanted":"Access"});
     if (access === true) {
-      let Result = await Nano.Read({"user": req.headers.uID, "type": "ID", "section": "main", "ids": [body.Item]});
-      if (Result) { Result = Result[oID] || Result; return res.send({"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result });}
+      return await Send.Read_Send_Contents( 
+        { "user":req.headers.uID,  "type":'ID',  "section":section,  "path":[oID],  "contents":false },
+        { "ConType":"HTTP",  "ConLink":res } );
     }
   }
   return res.status(401).send({"Error": "Invalid"});
 })
 
 
-Upload_Object_Tree = {}; // Seperates Uploads by Account IDs
 
+Upload_Object_Tree = {}; // Seperates Uploads by Account IDs
 Drive_Router.post('/upload/', async (req, res, next) => {
   const {body} = req;
   if (body.message) {
@@ -170,7 +219,6 @@ Drive_Router.post('/upload/', async (req, res, next) => {
     return res.status(403).json({ "status": "Incomplete" });
   }
 })
-
 File_Write = async(chunk) => {
   const {user, id, index, total, FileArray} = chunk;
 
@@ -205,14 +253,15 @@ Create_Folders = async(relative_path, user, meta) => {
   let previous_Folder;
   for (let i=0; i<relative_path.length; i++) {
     if (!relative_path[i]) { continue; }
-  	let found = Upload_Object_Tree[user].find(item => meta[relative_path[i]]);
-  	if (found) { previous_Folder = found[relative_path[i]].id; continue; }
+    let found = Upload_Object_Tree[user].find(item => item[relative_path[i]]);
+  	if (found) {previous_Folder = found[relative_path[i]].id; continue; }
     let fID = uuidv1();
     Upload_Object_Tree[user].push( {[relative_path[i]]: {"id": fID}});
     await Create_New_Item(user, fID, previous_Folder ?? meta.parent, {"section": meta.section, "name": relative_path[i]});
     previous_Folder = fID;
   }
   return previous_Folder;
+
   // let lastFolder = Upload_Object_Tree[user].find(item => meta[relative_path.slice(-1)]); // I may be able to remove these and replace with the previous_Folder variable;
   // return relative_path.length ? lastFolder[relative_path.slice(-1)].id : null; // I may be able to remove these and replace with the previous_Folder variable;
 }
@@ -227,7 +276,7 @@ Create_New_Item = async(user, oID, pID, meta) => {
     "parent": Helper.truncate(pID, 128),
     "size": size ?? 1,
     "type": {
-      "file": isFi ?? 'FOLDER',
+      "file": isFi ?? false,
       "mime": type ?? 'FOLDER'
     },
     "time": {

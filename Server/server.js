@@ -23,7 +23,6 @@ router = express.Router({mergeParams: true});
 
 const ejs = require('ejs');
 
-JSZip = require("jszip");
 mime = require('mime-types');
 
 
@@ -91,6 +90,7 @@ Mongo_Connect.connectToServer(function(err, client) {
   const Nord = require('./Nord.js');
   const Nano = require('./Nano.js');
   const GetSet = require('./GetSet.js');
+  const Send = require('./Send.js');
   
 
   io
@@ -140,33 +140,36 @@ Mongo_Connect.connectToServer(function(err, client) {
 
       if (data.type.match(/Item|Folder|File|Span/i)) {
         if (await Nano.Write(Write)) {
-          let Result = await Nano.Read({"user": Write.user, "type": "ID", "section": Write.section, "ids": [data.Path]});
-          if (Result) {
-            Result = Result[data.directory] || Result;
-            socket.emit('Directory', {"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result}) };
+          return await Send.Read_Send_Contents( 
+            { "user": Write.user,  "type":'ID',  "section":Write.section,  "path":[data.Path],  "contents":false },
+            { "ConType":"SOCKET",  "ConLink":socket } );
         }
       }      
     })
 
     socket.on('ItemEdit', async (data) => {
+      let EditItemIDs = (typeof data.ID == "object" ? data.ID : [data.ID]);
       let Edit = {
         "user": socket.uID,
         "type": data.action,
         "section": Helper.validateClient("section", data.section) ? data.section : "main",
-        "id": data.ID,
       };
 
       if (data.action == "DATA") { Edit.changeTo = data.EditData; }
       else if (data.action == "MOVE") { Edit.moveTo = data.To; }
 
       // console.log(Edit); return;
+      let successfulWrite = false;
+      for (let i=0; i<EditItemIDs.length; i++) {
+        Edit.id = EditItemIDs[i];
+        if (!await Nano.Edit(Edit)) {break;} else { successfulWrite = true; }
+      }
 
-      if (await Nano.Edit(Edit)) {
+      if (successfulWrite) {
         if (data.Path) { // Path states that we send back directory to User
-          let Result = await Nano.Read({"user": Edit.user, "type": "ID", "section": Edit.section, "ids": [data.Path]});
-          if (Result) {
-            Result = Result[data.Path] || Result; 
-            socket.emit('Directory', {"Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"}, "Contents": Result.contents || Result}) }
+          return await Send.Read_Send_Contents( 
+            { "user":Edit.user,  "type":'ID',  "section":Edit.section,  "path":[data.Path],  "contents":false },
+            { "ConType":"SOCKET",  "ConLink":socket } );
         }
       }
       return;
@@ -196,62 +199,6 @@ Mongo_Connect.connectToServer(function(err, client) {
       let linkID = nanoid(16);
       let linkinDB = await GetSet.writeShareLink(linkID, userID, objectID, file_name, mime);
       if (linkinDB === false) { return linkID = generateShareLinkID(userID, objectID, file_name, mime); }
-      return linkID;
-    }
- 
-
-    socket.on('downloadItems', async (For, DownloadItems) => {
-      console.log("Yeah... this is going to need some review. Potentially a whole rewrite. Nano.Read TREE should work though (downloadItems)"); return;
-      if (For == "SELF" || For == "SHARE") {
-        // Limit Download requests
-        if (socket.uID) {
-          zipForDownload(For, await Nano_Reader.returnInformation(socket.uID, "Main_Children", DownloadItems), socket.uID);
-        }
-      }
-    })
-
-    zipForDownload = async (For, ToDownload, userID) => {
-      var zip = new JSZip();
-      var BaseParent = zip.folder("Download");
-
-      let zipSize = 0;
-      let zipContents = [];
-      let zipTitle = '';
-
-      zipLooper(ToDownload, BaseParent);
-
-      async function zipLooper(Items, Parent) {
-        for (Contents in Items) {
-          if (Items[Contents].Name) {
-            let fileData = fs.readFileSync( "F:\\Nanode\\Files\\Mass\\"+Items[Contents].File_Name);
-            let fileName = (Items[Contents].Name.split(".").shift())+"."+mime.extension(Items[Contents].Mime);
-            Parent.file(fileName, fileData);
-            zipSize += Items[Contents].Size;
-            zipContents.push({"Name": Items[Contents].Name, "Mime":Items[Contents].Mime, "File_Name":Items[Contents].File_Name});
-          } else {
-            if (!zipTitle.length) { zipTitle = Contents }
-            SubParent = Parent.folder(Contents)
-            zipLooper(Items[Contents], SubParent)
-          }
-        }
-      }
-
-      if (!zipTitle.length) { zipTitle = "Collection of Files" }
-
-      let downloadID = await generateDownloadLinkID(For, userID, zipSize, zipContents, zipTitle);
-
-      zip
-        .generateNodeStream({type:'nodebuffer',streamFiles:true})
-        .pipe(fs.createWriteStream("F:\\Nanode\\Files\\Downloads\\Nanode_"+downloadID+".zip"))
-        .on('finish', function() {
-          let downloadURL = 'https://link.nanode.one/download/'+downloadID;
-          socket.emit('Link_Return', "DOWNLOAD", downloadURL);
-        })
-    }
-    generateDownloadLinkID = async (For, userID, Size, Contents, Title) => {
-      let linkID = nanoid(24);
-      let linkinDB = await GetSet.writeDownloadLink(linkID, For, userID, Size, Contents, Title);
-      if (linkinDB === false) { return linkID = generateDownloadLinkID(For, userID, Size, Contents, Title); }
       return linkID;
     }
 

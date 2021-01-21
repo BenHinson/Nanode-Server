@@ -32,11 +32,14 @@ module.exports = {
   },
 
   validateClient: function(variable, input) {
+    if (!input) { return null; }
     switch (variable) {
       case("section"): 
         return input.match(/main|blocks|codex|bin/i) ? true : false; break;
+      case('subSection'):
+        return input.match(/main|blocks|codex/) ? true : false; break;
       case("nanoID"):
-      return input.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i) ? true : false; break;
+        return input.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i) ? true : false; break;
     }
   },
 
@@ -64,34 +67,6 @@ module.exports = {
 
   dupeNameIncrement: function (parent_object, name, num = 0) {
     return typeof parent_object[num+"_"+name] == 'undefined' ? (num == 0 ? name : num+"_"+name) : module.exports.dupeNameIncrement(parent_object, name, num+1);
-  },
-
-  securityChecker: async({userID, Section, oID, Wanted, Input, Nano}) => {
-
-    if (oID.match(/home|homepage/i)) { return false; }
-    
-    console.log("Security Checker Requires a section. Must check all calls to securityChecker"); return false;
-
-    // let securityLookup = object ? object : await Nano_Reader.returnInformation(userID, "Information", Path, ["Security"]);
-    let securityLookup = Nano ? Nano : await Nano.Read({"user": userID, "type": "SPECIFIC", "section": Section, "ids": [oID], "keys": ["security"]});
-    
-    console.log(securityLookup);
-
-    if (!securityLookup[0]) { return false; }
-  
-    let level = 0;
-    let Type = [];
-  
-    if (securityLookup[0].pass) { level++; Type.push("Password") }
-    if (securityLookup[0].pin) { level++; Type.push("Pin") }
-    // if (securityLookup[0].Time)
-  
-    if (Wanted == "Amount") { return level; }
-    else if (Wanted == "Access") {
-      if (!Input) {  return Type.length >= 1 ? Type : false; }
-      return JSON.stringify(securityLookup[0]) === JSON.stringify(Input) ? true : false;
-    }
-    return false;
   },
 
   securityValue: function(item, secLevel = 0) { // Convert security options to a numerical value

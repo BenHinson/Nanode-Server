@@ -59,8 +59,9 @@ Link_Router.use('/download/a/:id', async(req, res) => {
   await GetSet.readDownloadLink(req.params.id).then(function(result) {
     if (result.for == "SELF") { return Helper.ErrorPage(res); }
     else if (result.for == "SHARE") {
-      return res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", function(err) {
+      return res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", result.title+".zip", function(err) {
         if (err) {return Helper.ErrorPage(res);}
+        GetSet.incrementDownloadCount(result.url);
       })
     }
   }).catch((err) => { console.log(err); return Helper.ErrorPage(res); })
@@ -72,7 +73,7 @@ Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
   await GetSet.readDownloadLink(req.params.id).then(function(result) {
     if (result === false || (result.for == "SELF" && userID != result.owner)) { return Helper.ErrorPage(res); }
     if (result.for == "SELF" && userID == result.owner) {
-      res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", function(err) {
+      res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", result.title+".zip", function(err) {
         if (err) {return Helper.ErrorPage(res);}
       })
     } else {
@@ -83,6 +84,7 @@ Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
         ejs_name: result.title,
         ejs_size: Helper.convertSize(result.size),
         ejs_items: result.contents.length + (result.contents.length > 1 ? " items" : " item"),
+        ejs_count: result.count || 0,
         ejs_contents: result.contents,
         ejs_preview: result.preview,
         ejs_preview_count: result.preview ? result.preview.length : 0,

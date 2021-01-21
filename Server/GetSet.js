@@ -65,16 +65,27 @@ module.exports = {
     .catch(err => {console.error(`Couldn't write Link ${err}`); return false; })
   },
   
-  writeDownloadLink: async(linkID, For, userID, Size, Contents, Title) => {
-    let Preview = [];
-    for (i=0; i<Contents.length; i++) { if ( (/image|video|text/g).test(Contents[i].Mime) ) {Preview.push({"File":Contents[i].File_Name, "Mime": Contents[i].Mime})} };
-    Contents = Contents.map(obj => ({Name: obj.Name, Mime: obj.Mime}))
-    return Download_Coll.insertOne({url: linkID, for: For, owner: userID, title: Title, size: Size, contents: Contents, preview: Preview})
-    .then(result => {
-      if (For == "SHARE") {module.exports.Account_Write({ "user": userID, "type":"Set", "parentKey": "download_links", "childKey": linkID, "data": {"title": Title, "size": Size, "items": Contents.length} });}
-      return true;
-    })
-    .catch(err => {console.error(`Couldn't write Link ${err}`); return false; })
+  writeDownloadLink: async(linkID, For, userID, data) => {
+    Contents = data.contents.map(item => ({"Name": item.Name, "Mime": item.Mime}))
+    return Download_Coll.insertOne({"url": linkID, "for": For.match(/SELF|SHARE/) ? For : "SELF", "owner": userID, "title": data.title, "size": data.size, "contents": Contents})
+      .then(result => {
+        if (For == "SHARE") {
+          module.exports.Account_Write({ 
+            "user": userID, 
+            "type":"Set", 
+            "parentKey": "download_links", 
+            "childKey": linkID, 
+            "data": {"title": data.title, "size": data.size, "items": Contents.length} });}
+        return linkID;
+      })
+      .catch(err => {console.error(`Couldn't write Link ${err}`); return false; })
+  },
+  
+  incrementDownloadCount: async(url) => {
+    return Download_Coll.updateOne( 
+      {"url": url}, 
+      { $inc: { "count": 1 } }
+    )
   },
 
   // =====================  READ  =====================
@@ -88,6 +99,31 @@ module.exports = {
       { $match: { 'userID': uID } },
       { $project: Project }
     ]).toArray();
+  },
+
+  securityChecker: async({userID, section, oID, wanted, input}) => {
+    if (oID.match(/home|homepage/i)) { return false; }
+    if (!section) { console.log("Security Checker Requires a section. Must check all calls to securityChecker"); return false; }
+
+    let securityLookup = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [oID], "keys": ["security"]});
+    if (!securityLookup[oID].security) { return false; }
+    let NanoSecu = securityLookup[oID].security;
+    
+    let level = 0;
+    let Type = [];
+    
+    if (NanoSecu.pass) { level++; Type.push("Password") }
+    if (NanoSecu.pin) { level++; Type.push("Pin") }
+    // if (NanoSecu.time)
+  
+    if (wanted == "Amount") { return level; }
+    else if (wanted == "Access") {
+      if (!input) { return Type.length >= 1 ? Type : false; }
+      Object.keys(NanoSecu).forEach(k => (!NanoSecu[k] && NanoSecu[k] !== undefined) && delete NanoSecu[k]);
+      Object.keys(input).forEach(k => (!input[k] && input[k] !== undefined) && delete input[k]);
+      return JSON.stringify(NanoSecu) === JSON.stringify(input) ? true : false;
+    }
+    return false;
   },
 
   readShareLink: async (linkID) => {

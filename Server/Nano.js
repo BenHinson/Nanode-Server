@@ -27,7 +27,11 @@ const Nano_Account = {
     ],
     "codex": [],
     "blocks": [],
-    "bin": []
+    "bin": {
+      "main": [],
+      "codex": [],
+      "blocks": []
+    }
   },
   "main": {
     "_MAIN_": {
@@ -41,7 +45,11 @@ const Nano_Account = {
   },
   "codex": {},
   "blocks": {},
-  "bin": {}
+  "bin": {
+    "main": {},
+    "codex": {},
+    "blocks": {}
+  }
 };
 const Nano_Item = {
   "id": "",
@@ -89,16 +97,16 @@ module.exports = {
       Mongo.$inc = { [`size.total.${Helper.BaseType(data.type.mime)}`]: data.size || 1 }
     } else {return false;}
     
+    // return;
     let Written = await Nano_Set(user, Mongo);
     return Written ? data.size || 1 : false;
   },
 
   Edit: async(Edit, Mongo={}) => {
-    const {user, type, section, id, changeTo} = Edit;
+    const {user, type, section, id, changeTo={}} = Edit;
     let {moveTo} = Edit;
   
     changeTo.time = {"modified": {"stamp": Helper.timeNow(), "who": user}};
-
     ["id", "contents", "size", "security", "type"].forEach(Key => delete changeTo[Key]);
   
     let current = await module.exports.Read({"user": user, "type": "ID", "section": section, "ids": [id]})
@@ -115,7 +123,6 @@ module.exports = {
     else if (type == "MOVE" && moveTo) {
       Mongo.$set = {};
       const External = moveTo.match(/bin|main|codex|block/); // Dont use i tag: (_MAIN_ will match 'main' if not)
-      if (moveTo == "bin") {return "Cannot Move to Bin"}
       if (moveTo == "homepage" && section == "main") { moveTo = "_GENERAL_" };
   
       const New_Parent = External ? (moveTo == "main" ? await Nano_Get(user, {[`home.${moveTo}`]: 1}).then((res) => res[0]["home"][moveTo][0]) : "homepage" ) : moveTo;
@@ -128,24 +135,9 @@ module.exports = {
         ? Mongo.$push = { [`home.${moveTo}`]: id }
         : Mongo.$set[ External ? `${moveTo}.${New_Parent}.contents.${id}` : `${section}.${moveTo}.contents.${id}` ] = Short_Contents(changeTo, current);
       
-      if (External) {
-        let Contents_Tree = await module.exports.Read({"user": user, "type": "TREE", "section": section, "ids": [id]});
-        Mongo.$unset = ID_Set(section, [...Contents_Tree.Parent_Id, ...Contents_Tree.Child_Id]);
-  
-        Contents_Tree.Parent_Nano[id].parent = New_Parent;
-  
-        if (moveTo == "bin") {
-          Contents_Tree.Parent_Nano[id].time['deleted'] = {"stamp": Helper.timeNow(), "who": user};
-          let Total_Tree_Size = Key_Counter( {...Contents_Tree.Parent_Nano, ...Contents_Tree.Child_Nano} , "size");
-          Mongo.$inc = Key_Set({ "Pre":'size.total', "Change":Total_Tree_Size, "Negative":true })
-          Mongo.$inc = Key_Set({ "Pre":'size.bin', "Change":Total_Tree_Size }, Mongo.$inc)
-        } else if (section == "bin") {
-          Contents_Tree.Parent_Nano[id].time['recovered'] = {"stamp": Helper.timeNow(), "who": user};
-        }
-  
-        Mongo.$set = Key_Set({ "Pre":moveTo, "Change":{...Contents_Tree.Parent_Nano, ...Contents_Tree.Child_Nano} }, Mongo.$set)
-      }
-      else {
+      if (External) { // Move between sections.
+        Mongo = await External_Move({user, type, section, id, changeTo, moveTo, New_Parent}, current, Mongo);
+      } else {
         Mongo.$set[`${section}.${id}.parent`] = moveTo;
       }
     }
@@ -157,7 +149,7 @@ module.exports = {
   },
 
   Read: async(Query, Project={}) => {
-    const {user, type, section, ids, contents, keys, internal, CUSTOM} = Query;
+    const {user, type, section, subSection, ids, contents, keys, internal, CUSTOM} = Query;
 
     if (CUSTOM) {
       Project = CUSTOM;
@@ -165,7 +157,8 @@ module.exports = {
     else if (type == "ID") {    // Returns either full nanode of specified or its contents
       if (ids[0].match(/home|homepage/i)) {
         let Spans = await Nano_Get(user, {[`home.${section}`]: 1});
-        Project = ID_Query({"section":section, "query":Spans[0]['home'][section]});
+        let ProjectQuery = (Spans[0]['home'][section][subSection] || Spans[0]['home'][section])
+        Project = ID_Query({"section":section, "query":ProjectQuery});
       } else {
         Project = ID_Query({"section":section, "query":ids, "contents":contents});
       }
@@ -182,16 +175,14 @@ module.exports = {
       ids.forEach(id => { Project[`${section}.${id}`] = Key_Query(keys) })
     }
     else if (type == "TREE") {    // Returns Array of Children IDs & Children Nanos from Object
-      let Tree = {"Parent_Id": [], "Parent_Nano": {}, "Child_Id": [], "Child_Nano": {}}
-      Tree = await Get_Nano_Children(ids[0], Tree);
-      return Tree;
+      return await Get_Nano_Children(ids[0], {"Parent_Id": [], "Parent_Nano": {}, "Child_Id": [], "Child_Nano": {}});
 
       async function Get_Nano_Children(id, Tree) {
         let Nano = await Nano_Get(user, ID_Query({"section":section, "query":[id], "contents":false}));
         Nano = Nano[0][section][id];
         Tree.Parent_Id.length ? Tree.Child_Id.push(Nano.id) : Tree.Parent_Id.push(Nano.id);
         Object.keys(Tree.Parent_Nano).length === 0 ? Tree.Parent_Nano[Nano.id] = Nano : Tree.Child_Nano[Nano.id] = Nano;
-        if (Nano.type.file === false) {
+        if (Nano.type.file === false || Nano.type.file == "FOLDER") {
           let Children_IDs = Object.keys(Nano.contents);
           for (let c=0; c<Children_IDs.length; c++) {
             await Get_Nano_Children(Children_IDs[c], Tree);
@@ -246,13 +237,58 @@ module.exports = {
   },
 }
 
+External_Move = async(Edit, Current, Mongo) => {
+  let {user, type, section, id, changeTo, moveTo, New_Parent} = Edit;
+  let DONTSET = false;
+
+  let Contents_Tree = await module.exports.Read({"user": user, "type": "TREE", "section": section, "ids": [id]});
+  let Total_Tree_Size = Key_Counter( {...Contents_Tree.Parent_Nano, ...Contents_Tree.Child_Nano} , "size");
+  
+  Mongo.$unset = ID_Set(section, [...Contents_Tree.Parent_Id, ...Contents_Tree.Child_Id], Mongo.$unset);
+
+  Contents_Tree.Parent_Nano[id].parent = New_Parent;
+  
+  if (moveTo == "bin") { // Send to Bin
+    Mongo.$pull = { [`recent.${section}`]: id }
+
+    if (Current.type.mime == "FOLDER" && !Contents_Tree.Child_Id.length) { DONTSET = true; } 
+    else {
+      Mongo.$push = { [`home.bin.${section}`]: {$each: [id], $position: 0} };
+
+      Contents_Tree.Parent_Nano[id]['BIN_DATA'] = { // Set Bin Data for Recovery
+        "section": section,
+        "parent": Current.parent,
+        "deleted": {"stamp": Helper.timeNow(), "who": user}
+      }
+      Mongo.$inc = Key_Set({ "Pre":'size.total', "Change":Total_Tree_Size, "Negative":true }, Mongo.$inc)
+      Mongo.$inc = Key_Set({ "Pre":'size.bin', "Change":Total_Tree_Size }, Mongo.$inc)
+    }
+  } else if (section == "bin") { // Recover from Bin
+    // Remove from Bin. and home.bin.SECTION. Read BIN_DATA to place back to parent. Check Previous Spot still avaliable. else go to homepage || _GENERAL_
+
+    Mongo.$inc = Key_Set({ "Pre":'size.bin', "Change":Total_Tree_Size, "Negative":true }, Mongo.$inc);
+    Mongo.$inc = Key_Set({ "Pre":'size.total', "Change":Total_Tree_Size }, Mongo.$inc);
+  }
+
+  if (DONTSET)
+    { delete Mongo.$set; delete Mongo.$push }
+  else
+    { Mongo.$set = Key_Set({ "Pre":moveTo, "Change":{...Contents_Tree.Parent_Nano, ...Contents_Tree.Child_Nano}, "Move":true }, Mongo.$set); }
+
+  return Mongo;
+}
+
+// ==============
+
 Short_Contents = function(fir={}, sec={}) {
   let ItemsType = fir.type || sec.type || {};
   return {...Contents_Item, ...{"name": fir.name || sec.name || "Unnamed", "mime": ItemsType.mime ||ItemsType.mime || "UNKNOWN", "size": fir.size || sec.size || 1, "color": fir.color || sec.color || '', "time": fir.time || sec.time || {"modified": {"stamp":Helper.timeNow()}} }};
 }
 
 ID_Query = function({section, query, contents, internal}, created={}) {
-  query.forEach(item => { created[`${section}.${item}${contents ? ".contents" : ""}`] = 1; });
+  if (query.length) {
+    query.forEach(item => { item ? created[`${section}.${item}${contents ? ".contents" : ""}`] = 1 : '' });
+  }
   return created;
 }
 
@@ -267,11 +303,15 @@ Key_Query = function(Keys, created={}) {
 }
 
 Key_Set = function(Set, created={}) {
-  const {Pre, Change, Negative} = Set;
+  const {Pre, Change, Move, Negative} = Set;
   for (let [key, value] of Object.entries(Change)) { 
-    typeof value == "object"
-      ? created[`${Pre}.${key+="."+Object.keys(value)[0]}`] = (Negative ? -Math.abs(value) : value[Object.keys(value)[0]])
-      : created[`${Pre}.${key}`] = (Negative ? -Math.abs(value) : value)}
+    if (Move) {
+      created[`${Pre}.${key}`] = value;
+    } else {
+      typeof value == "object"
+        ? created[`${Pre}.${key+="."+Object.keys(value)[0]}`] = (Negative ? -Math.abs(value) : value[Object.keys(value)[0]])
+        : created[`${Pre}.${key}`] = (Negative ? -Math.abs(value) : value)}
+    }
   return created;
 }
 
