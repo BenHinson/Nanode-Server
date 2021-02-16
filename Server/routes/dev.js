@@ -4,7 +4,9 @@ const csp = require(`helmet-csp`)
 const crypto = require('crypto');
 const corsOptions = {origin: 'https://dev.Nanode.one'}
 
-Dev_Router.get('/', function(req, res) { res.sendFile('F:\\Nanode\\Nanode Client\\views\\dev.html') });
+Dev_Router.get('/', function(req, res) { console.log('DevPageViewed'); res.sendFile('F:\\Nanode\\Nanode Client\\views\\dev.html') });
+
+Dev_Router.use('/design', function(req, res) { res.sendFile('F:\\Nanode\\Nanode Client\\views\\design.html') });
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////

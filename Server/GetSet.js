@@ -33,8 +33,9 @@ module.exports = {
   
     let uID = uuidv4();
     let CookieID = nanoid();
+    let Username = Email.split('@')[0].replace(/[^a-zA-Z +]/g,' ').replace(/  +/g, ' ');
   
-    return Account_Coll.insertOne({"email": Email.toLowerCase(), "password": Hashed_Password, "userID": uID, "cookieID": CookieID, "key": crypto.randomBytes(32), "settings": Helper.Settings_Template, "plan": (10 * 1024 * 1024 * 1024) })
+    return Account_Coll.insertOne({"email": Email.toLowerCase(), "password": Hashed_Password, "passwordLength": Password.length, "userID": uID, "photo": "", "username": Username, "cookieID": CookieID, "key": crypto.randomBytes(32), "settings": Helper.Settings_Template, "plan": (10 * 1024 * 1024 * 1024) })
       .then(async() => {
         await Nord.Nord_Create("Nanode.one", CookieID, uID);
         await Nano.Account_Setup(uID);

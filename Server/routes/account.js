@@ -9,6 +9,7 @@ const validator = require('validator');
 
 const Nord = require('../Nord.js');
 const GetSet = require('../GetSet.js');
+const Helper = require('../Helper.js');
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
@@ -26,7 +27,7 @@ Account_Router.use(csp({
 
 
 Account_Router.use('/login', function(req, res, next) { res.sendFile('F:\\Nanode\\Nanode Client\\views\\login.html'); })
-Account_Router.get('/', Nord.Middle, async (req, res) => { res.sendFile('F://Nanode/Nanode Client/views/account.html', {extensions: ['html', 'htm']}) });
+Account_Router.get('/', Nord.Middle, async (req, res) => { console.log('AccountPageViewed');  res.sendFile('F://Nanode/Nanode Client/views/account.html', {extensions: ['html', 'htm']}) });
 
 
 app.post('/login', async (req, res) => {

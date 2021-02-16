@@ -69,6 +69,9 @@ Start_Server = function() {
   app.use(subdomain('link', require('./routes/link')))
   app.use(subdomain('spiral', require('./routes/spiral')))
   app.use(express.static('../Nanode Client'));
+
+  // ========== Error page Fallback ==========
+  app.use(function (req, res, next) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); })
 }
 
 const Keys = require('./Keys.js')

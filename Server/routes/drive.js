@@ -45,12 +45,11 @@ Drive_Router.use(csp({
   }
 }));
 
-Drive_Router.use(Nord.Middle);
+// Drive_Router.use(Nord.Middle); // Cannot set, as this then runs for every static item too. js/css files, images etc...
 
+Drive_Router.get('/', Nord.Middle, async (req, res) => { res.sendFile('F://Nanode/Nanode Client/views/drive.html', {extensions: ['html', 'htm']}) })
 
-Drive_Router.get('/', async (req, res) => { res.sendFile('F://Nanode/Nanode Client/views/drive.html', {extensions: ['html', 'htm']}) })
-
-Drive_Router.use('/storage/:content', async (req, res, next) => {
+Drive_Router.use('/storage/:content', Nord.Middle, async (req, res, next) => {
   let userID = req.headers.uID;
   
   let WantedURL = req.params.content;
@@ -80,7 +79,7 @@ Drive_Router.use('/storage/:content', async (req, res, next) => {
   }
 })
 
-Drive_Router.use('/user/:section?/:item?', async (req, res, next) => {
+Drive_Router.use('/user/:section?/:item?', Nord.Middle, async (req, res, next) => {
   const section = Helper.validateClient('section', req.params.section) ? req.params.section : 'main';
   const item = Helper.validateClient('nanoID', req.params.item) ? req.params.item : undefined;
 
@@ -95,7 +94,7 @@ Drive_Router.use('/user/:section?/:item?', async (req, res, next) => {
   return Helper.ErrorPage(res);
 })
 
-Drive_Router.use('/folder/:oID', async (req, res, next) => {
+Drive_Router.use('/folder/:oID', Nord.Middle, async (req, res, next) => {
   let userID = req.headers.uID;
   let oID = req.params.oID.replace('$', '');
   let section = Helper.validateClient("section", req.query.s) ? req.query.s : "main";
@@ -113,7 +112,7 @@ Drive_Router.use('/folder/:oID', async (req, res, next) => {
   return Helper.ErrorPage(res);
 })
 
-Drive_Router.use('/settings', async (req, res, next) => {
+Drive_Router.use('/settings', Nord.Middle, async (req, res, next) => {
   if (req.headers.uID != "null") {
     let accountData = await GetSet.Account_Get(req.headers.uID, ["settings", "plan"]);
     accountData = accountData[0];
@@ -127,7 +126,7 @@ Drive_Router.use('/settings', async (req, res, next) => {
 
 // ============ POST ============
 
-Drive_Router.post('/download', async(req, res) => {
+Drive_Router.post('/download', Nord.Middle, async(req, res) => {
   const {body} = req;
   if (body && body.FOR && body.NAME && body.ITEMS && body.SECTION && req.headers.uID != 'null') {
     
@@ -174,7 +173,7 @@ Write_File_To_Zip = async(Nano, Parent, zipData) => {
 
 
 
-Drive_Router.post('/auth', async (req, res) => {
+Drive_Router.post('/auth', Nord.Middle, async (req, res) => {
   // console.log("Have a key sent to the user that unlocks it for the session. Various Reasons...");
   const {body} = req;
   if (body && req.headers.uID != "null") {
@@ -192,7 +191,7 @@ Drive_Router.post('/auth', async (req, res) => {
 
 
 Upload_Object_Tree = {}; // Seperates Uploads by Account IDs
-Drive_Router.post('/upload/', async (req, res, next) => {
+Drive_Router.post('/upload/', Nord.Middle, async (req, res, next) => {
   const {body} = req;
   if (body.message) {
     if (body.message == "Queue_Empty" && Upload_Object_Tree[req.headers.uID]) {Upload_Object_Tree[req.headers.uID] = []; return res.sendStatus(200);}

@@ -38,48 +38,58 @@ const Nord_DB = Mongo_Connect.getDB("nord");
 // login: cookietest@nanode.one
 // password: c00kieTEST!
 
+// WhiteList
+// if (WhiteListID.indexOf(Nord_Cookie.uID) !== -1) { return {"uID": Nord_Cookie.uID, "req": requestURL(Type, Connection)} }
+// WhiteList
+
 // Nord WhiteList
 WhiteListID = ["41feb20c-ad74-4b57-abbb-a695334c3569","56d0bc91-229e-4109-9fd5-d968386518a6","69ebe365-398f-4340-b4a0-b51da339fa19"]
 
 module.exports = {
 
   Check: async(Type, Connection, Response) => { // Check Database, return false or users ID // Send Login res.redirect('https://account.nanode.one/login')
-    let tray = (Type == "SOCKET" ? cookie.parse(JSON.stringify(Connection.handshake.headers.cookie)) : Connection.cookies);
-    if (!tray) { return false; }
-    let Nord_Cookie = (tray.nord ? ( JSON.parse( CryptoJS.AES.decrypt(decodeURIComponent( cookie_sign.unsign( tray.nord , Keys.SECRET_KEY ) ), Keys.COOKIE_ENCRYPT_KEY).toString(CryptoJS.enc.Utf8) ) ) : false);
-    if (!Nord_Cookie || !Nord_Cookie.sID || !Nord_Cookie.cID) { console.log("Incomplete Cookie"); return false; }
+    let tray = (Type == "SOCKET"
+      ? cookie.parse(JSON.stringify(Connection.handshake.headers.cookie))
+      : Connection.cookies);
+    if (!tray) { return {"uID": false, "err": "No Cookies", "req": requestURL(Type, Connection)}; }
+
+    // @ NORD COOKIE CHECK
+    let Nord_Cookie = getCookie(tray.nord);
+    if (!completeCookie('NORD', Nord_Cookie)) { return {"uID": false, "err": "Incomplete Nord", "req": requestURL(Type, Connection)} };
+
+    // @ SESSION COOKIE CHECK
+    let Session_Cookie = getCookie(tray.session);
+    if (completeCookie('SESSION', Session_Cookie)) {
+
+      if ((Session_Cookie.toc + 7200000 > new Date().getTime())
+        && (Session_Cookie.sID == Nord_Cookie.sID)
+        && (Session_Cookie.rot == Keys.ROTATION_KEY)
+        ) { return {"uID": Nord_Cookie.uID, "req": requestURL(Type, Connection)}; }
+
+    }
+
+    // @ DATABASE CALL AND CHECK
+    let Record = await module.exports.Nord_Return(Nord_Cookie.domain, Nord_Cookie.cID);
+    if (!Record || Record.uID != Nord_Cookie.uID) { return {"uID": false, "err": "No Match User ID", "req": requestURL(Type, Connection)} };
+    let Session = Record.sessions[Nord_Cookie.sID];
+    if (!Session || Session.Locked !== false) { return {"uID": false, "err": "No Such Session or Locked", "req": requestURL(Type, Connection)} };
     
-    // WhiteList
-    if (WhiteListID.indexOf(Nord_Cookie.uID) !== -1) { return {"uID": Nord_Cookie.uID} }
-    // WhiteList
+    if ( Helper.DeviceMatch(Helper.Device_Info(Type, Connection), Session.Dev_Info) ) {
+      let new_Session = {"Added": new Date().getTime(), "Dev_Added": Session.Dev_Added, "Dev_Info": Helper.Device_Info(Type, Connection), "Locked": Session.Locked}
+      let Cookies = await module.exports.Nord_Update(Nord_Cookie.domain, Record._id, Nord_Cookie.cID, Nord_Cookie.uID, Nord_Cookie.sID, nanoid(), new_Session)
 
-    let Session_Cookie = (tray.session ? ( JSON.parse( CryptoJS.AES.decrypt(decodeURIComponent( cookie_sign.unsign( tray.session , Keys.SECRET_KEY ) ), Keys.COOKIE_ENCRYPT_KEY).toString(CryptoJS.enc.Utf8) ) ) : false);
-    if (Session_Cookie && (Session_Cookie.toc + 7200000 > new Date().getTime()) && (Session_Cookie.sID == Nord_Cookie.sID) && (Session_Cookie.rot == Keys.ROTATION_KEY)) {
-      return {"uID": Nord_Cookie.uID};
-    }
-    else {
-      console.log("Calling Nord Database and Checking.")
-      let Record = await module.exports.Nord_Return(Nord_Cookie.domain, Nord_Cookie.cID);
-      if (!Record || Record.uID != Nord_Cookie.uID) {return false };
-      let Session = Record.sessions[Nord_Cookie.sID];
-      if (!Session || Session.Locked !== false) {return false };
+      await SendCookie(Type, (Type == "SOCKET" ? Connection : Response), 'nord', Cookies.Nord, 31536000000);
+      await SendCookie(Type, (Type == "SOCKET" ? Connection : Response), 'session', Cookies.Session, 31536000000); // 86400000
       
-      if ( Helper.DeviceMatch(Helper.Device_Info(Type, Connection), Session.Dev_Info) ) {
-        let new_Session = {"Added": new Date().getTime(), "Dev_Added": Session.Dev_Added, "Dev_Info": Helper.Device_Info(Type, Connection), "Locked": Session.Locked}
-        let Cookies = await module.exports.Nord_Update(Nord_Cookie.domain, Record._id, Nord_Cookie.cID, Nord_Cookie.uID, Nord_Cookie.sID, nanoid(), new_Session)
-
-        await SendCookie(Type, (Type == "SOCKET" ? Connection : Response), 'nord', Cookies.Nord, 31536000000);
-        await SendCookie(Type, (Type == "SOCKET" ? Connection : Response), 'session', Cookies.Session, 31536000000); // 86400000
-        
-        return {"uID": Nord_Cookie.uID};
-      }
-      else { console.log("not the same device"); return false; }
+      return {"uID": Nord_Cookie.uID, "req": requestURL(Type, Connection)};
     }
+    else { return {"uID": false, "err": "Different Device", "req": requestURL(Type, Connection)}; }
   },
 
   Middle: async(req, res, next) => {
     let Account = await module.exports.Check("HTTP", req, res);
-    if (!Account) {
+    // console.log(Account);
+    if (!Account.uID || Account.uID == false) {
       if (req.originalUrl.match(/\/settings/)) {req.headers.uID = "null"; return next();}
       return res.redirect('https://account.Nanode.one/login'); }
     else {req.headers.uID = Account.uID; next(); }
@@ -128,6 +138,21 @@ module.exports = {
 
 }
 
+getCookie = function(encrypted_Cookie) {
+  return encrypted_Cookie
+    ? ( JSON.parse( CryptoJS.AES.decrypt(decodeURIComponent( cookie_sign.unsign( encrypted_Cookie , Keys.SECRET_KEY ) ), Keys.COOKIE_ENCRYPT_KEY).toString(CryptoJS.enc.Utf8) ) )
+    : false;
+}
+
+completeCookie = function(type, cookie) {
+  if (type == 'NORD') { return (cookie && cookie.sID && cookie.cID) ? true : false; }
+  else if (type == 'SESSION') { return (cookie && cookie.toc && cookie.sID && cookie.rot) ? true : false }
+  else { return false }
+}
+
+requestURL = function(Type, Connection) {
+  return {"type": Type, "url": (Type == 'SOCKET' ? Connection.url : Connection.originalUrl)};
+}
 
 SendCookie = async(Type, Response, Name, Cookie, Age) => {  //  SOCKET||HTTP , socket||res , Session||Nord , the encrypted cookie , max age in ms
   if (Type == "SOCKET" && Response) {
