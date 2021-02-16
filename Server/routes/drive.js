@@ -2,7 +2,6 @@ var fs = require('fs-extra');
 var express = require('express');
 var Drive_Router = express.Router();
 
-const sanitize = require("sanitize-filename");
 const csp = require(`helmet-csp`)
 const cors = require('cors');
 const corsOptions = {origin: 'https://drive.Nanode.one'}
