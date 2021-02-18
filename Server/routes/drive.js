@@ -55,11 +55,12 @@ Drive_Router.use('/storage/:content', Nord.Middle, async (req, res, next) => {
   if (!Helper.validateClient('nanoID', WantedURL)) {return Helper.ErrorPage(res)};
   let imgHeight = (req.query.h == "null") ? null : parseInt(req.query.h || null);
   let imgWidth = (req.query.w == "null") ? null : parseInt(req.query.w || null);
+  let section = Helper.validateClient("section", req.query.s) ? req.query.s : "main";
 
   let codex = parseInt(req.query.cdx); // SEND CODEX THROUGH A DIFFERNT URL.
 
-  let Type = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": "main", "ids": [WantedURL], "keys": ["type"]});
-  Type = Type[WantedURL].type;
+  let Type = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [WantedURL], "keys": ["type"]});
+  Type = Type[WantedURL]?.type;
 
   if (typeof Type !== 'undefined' && Type.mime) {
     fs.readFile(`F:\\Nanode\\Files\\Mass\\${uuidv3(WantedURL, userID)}`, function(err, data) {
@@ -95,7 +96,7 @@ Drive_Router.use('/user/:section?/:item?', Nord.Middle, async (req, res, next) =
 
 Drive_Router.use('/folder/:oID', Nord.Middle, async (req, res, next) => {
   let userID = req.headers.uID;
-  let oID = req.params.oID.replace('$', '');
+  let oID = req.params.oID;
   let section = Helper.validateClient("section", req.query.s) ? req.query.s : "main";
   let subSection = Helper.validateClient('subSection', req.query.sub) ? req.query.sub : undefined;
 

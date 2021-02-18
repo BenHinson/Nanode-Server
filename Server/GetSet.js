@@ -107,7 +107,7 @@ module.exports = {
     if (!section) { console.log("Security Checker Requires a section. Must check all calls to securityChecker"); return false; }
 
     let securityLookup = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [oID], "keys": ["security"]});
-    if (!securityLookup[oID].security) { return false; }
+    if (!securityLookup[oID] || !securityLookup[oID].security) { return false; }
     let NanoSecu = securityLookup[oID].security;
     
     let level = 0;

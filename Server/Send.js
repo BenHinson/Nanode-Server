@@ -12,7 +12,12 @@ module.exports = {
   
     let Result = await Nano.Read({"user": user, "type": type, "section": section, "subSection": subSection, "ids": path, "contents": contents || false});
     if (Result) {
-      Result = Result[path] || Result; 
+      Result = Result[path] || Result;
+
+      if (section.match(/bin/)) {
+        Result = ExternalFormat(Result);
+        // Result = {};
+      }
       
       let Result_Formatted = {
         "Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"},
@@ -28,4 +33,17 @@ module.exports = {
       }
     }
   }
+}
+
+
+function ExternalFormat(Result) {
+  for (const [id, data] of Object.entries(Result)) {
+    Result[id] = {
+      'name': data.name,
+      'size': data.size,
+      'type': data.type,
+      'deleted': data.BIN_DATA.deleted
+    };
+  }
+  return Result;
 }
