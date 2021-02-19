@@ -15,8 +15,7 @@ module.exports = {
       Result = Result[path] || Result;
 
       if (section.match(/bin/)) {
-        Result = ExternalFormat(Result);
-        // Result = {};
+        Result = await module.exports.FormatResponse(section, Result, NanoData);
       }
       
       let Result_Formatted = {
@@ -32,18 +31,40 @@ module.exports = {
         return ConLink.emit('Directory', Result_Formatted) 
       }
     }
-  }
-}
+  },
 
+  FormatResponse: async(Format, Result, NanoData) => {
+    if (Result != 'Empty Query') {
+      let fileTree;
 
-function ExternalFormat(Result) {
-  for (const [id, data] of Object.entries(Result)) {
-    Result[id] = {
-      'name': data.name,
-      'size': data.size,
-      'type': data.type,
-      'deleted': data.BIN_DATA.deleted
-    };
+      for (const [id, data] of Object.entries(Result)) {
+  
+        if (Format == 'bin') {
+          Result[id] = {
+            'name': data.name,
+            'size': data.size,
+            'type': data.type,
+            'deleted': data.BIN_DATA.deleted
+          };
+        }
+        else if (Format == 'binInfo') {
+          if (!data.type.file) {
+            fileTree = await Nano.Read({"user": NanoData.user, "type": 'TREE', "section": NanoData.section, "ids": [id], "contents": false});
+          }
+          let itemParent = await Nano.Read({"user": NanoData.user, "type": 'SPECIFIC', 'section': data.BIN_DATA.section, "ids": [data.BIN_DATA.parent], "keys": ["name", "description"]});
+
+          Result[id] = {
+            'name': data.name,
+            'parent': itemParent[data.BIN_DATA.parent] || 'Deleted',
+            'size': fileTree?.Tree_Data.size || data.size,
+            'type': data.type,
+            'time': data.time,
+            'deleted': data.BIN_DATA.deleted,
+            'count': fileTree?.Tree_Data.count || 1,
+          }
+        }
+      }
+    }
+    return Result;
   }
-  return Result;
 }

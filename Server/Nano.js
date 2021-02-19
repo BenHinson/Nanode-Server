@@ -172,14 +172,17 @@ module.exports = {
       Project = ID_Query({"section":section, "query":List_Of_IDs});
     } 
     else if (type == "SPECIFIC") {    // Returns Specific Values from Nanos
+      // EXAMPLE => let Type = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [WantedURL], "keys": ["type"]});
       ids.forEach(id => { Project[`${section}.${id}`] = Key_Query(keys) })
     }
     else if (type == "TREE") {    // Returns Array of Children IDs & Children Nanos from Object
-      return await Get_Nano_Children(ids[0], {"Parent_Id": [], "Parent_Nano": {}, "Child_Id": [], "Child_Nano": {}});
+      return await Get_Nano_Children(ids[0], {"Tree_Data": {'size': 0, 'count': 0}, "Parent_Id": [], "Parent_Nano": {}, "Child_Id": [], "Child_Nano": {}});
 
       async function Get_Nano_Children(id, Tree) {
         let Nano = await Nano_Get(user, ID_Query({"section":section, "query":[id], "contents":false}));
         Nano = Nano[0][section][id];
+        Tree.Tree_Data.size += Nano.size || 1;
+        Tree.Tree_Data.count += 1;
         Tree.Parent_Id.length ? Tree.Child_Id.push(Nano.id) : Tree.Parent_Id.push(Nano.id);
         Object.keys(Tree.Parent_Nano).length === 0 ? Tree.Parent_Nano[Nano.id] = Nano : Tree.Child_Nano[Nano.id] = Nano;
         if (Nano.type.file === false || Nano.type.file == "FOLDER") {

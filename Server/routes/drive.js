@@ -86,8 +86,14 @@ Drive_Router.use('/user/:section?/:item?', Nord.Middle, async (req, res, next) =
   if (req.headers.uID && section && item) {
     let nano = await Nano.Read({"user": req.headers.uID, "type": "ID", "section": section, "ids": [item], "contents": false});
     if (nano[item]) {
-      nano[item].security = Helper.securityValue(nano[item]);
-      nano[item].contents = {};
+
+      if (section == 'bin') {
+        nano = await Send.FormatResponse('binInfo', nano, {'user': req.headers.uID, 'section': section});
+      } else {
+        nano[item].security = Helper.securityValue(nano[item]);
+        nano[item].contents = {};
+      }
+      
     }
     return res.status(200).send( nano )
   } else { return res.status(400).send({"Error": "Invalid Request"}) }
