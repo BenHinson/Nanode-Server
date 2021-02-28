@@ -57,11 +57,12 @@ module.exports = {
     .catch(err => {console.error(`Couldn't update account info:  ${err}`); return false; })
   },
   
-  writeShareLink: async(linkID, userID, objectID, file, mime) => {
-    return Link_Coll.insertOne({url: linkID, owner: userID, object: objectID, file: file, mime: mime})
+  writeShareLink: async(linkID, userID, linkData) => {
+    let {oID, file_name, mime} = linkData;
+    return Link_Coll.insertOne({url: linkID, owner: userID, object: oID, file: file_name, mime: mime})
     .then(result => {
-      module.exports.Account_Write({ "user": userID, "type": "Set", "parentKey":"share_links", "childKey":linkID, "data": {"file": file} });
-      return true;
+      module.exports.Account_Write({ "user": userID, "type": "Set", "parentKey":"share_links", "childKey":linkID, "data": {"file": file_name} });
+      return linkID;
     })
     .catch(err => {console.error(`Couldn't write Link ${err}`); return false; })
   },
@@ -76,7 +77,8 @@ module.exports = {
             "type":"Set", 
             "parentKey": "download_links", 
             "childKey": linkID, 
-            "data": {"title": data.title, "size": data.size, "items": Contents.length} });}
+            "data": {"title": data.title, "size": data.size, "items": Contents.length} });
+          }
         return linkID;
       })
       .catch(err => {console.error(`Couldn't write Link ${err}`); return false; })

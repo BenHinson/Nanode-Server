@@ -141,6 +141,23 @@ module.exports = {
         Mongo.$set[`${section}.${id}.parent`] = moveTo;
       }
     }
+    else if (type == 'DELETE') {
+      Mongo.$set = {};
+
+      if (!current.parent) { // Is Span
+        if (Object.keys(current.contents).length) {
+          return ['Span is not empty']
+        } else {
+          Mongo.$pull = { [`home.${section}`]: id }
+          Mongo.$unset = { [`${section}.${id}`]: '' }
+          delete Mongo.$set;
+        }
+      } else {
+        const New_Parent = 'homepage';
+        Mongo.$unset = {[`${section}.${current.parent}.contents.${id}`]: ''}
+        Mongo = await External_Move({user, type, section, id, changeTo, moveTo, New_Parent}, current, Mongo);
+      }
+    }
     else { return; }
 
     // console.log(Mongo); return;

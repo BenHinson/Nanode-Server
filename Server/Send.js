@@ -33,6 +33,14 @@ module.exports = {
     }
   },
 
+  Error: async(Error, Connection) => {
+    if (ConType == "HTTP") {
+      return ConLink.status(Error.Code || 400).send(Error.Message || 'Internal Error');
+    } else if (ConType == "SOCKET") {
+      return ConLink.emit('Error', Error) 
+    }
+  },
+
   FormatResponse: async(Format, Result, NanoData) => {
     if (Result != 'Empty Query') {
       let fileTree;
@@ -68,3 +76,8 @@ module.exports = {
     return Result;
   }
 }
+
+
+// Idea to allow access to locked folder after correct input.
+// securityAccess = { 'USERS ID + SessionID': { 'NODEID': TIME_OF_INPUT } }
+// Add Item/Node ID to users account and session id (May cause issues with changing session id's look into Nord for this) and check if xTime (30 mins or so) has ellapsed.

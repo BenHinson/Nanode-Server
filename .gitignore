@@ -1,5 +1,6 @@
 auth/
 Server/Keys.js
+Server/python
 Nano Tests
 
 # Logs

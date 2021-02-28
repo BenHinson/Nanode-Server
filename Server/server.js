@@ -76,6 +76,7 @@ Start_Server = function() {
 
 const Keys = require('./Keys.js')
 const Mongo_Connect = require('./Mongo_Connect');
+const { write } = require('fs');
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,108 +106,6 @@ Mongo_Connect.connectToServer(function(err, client) {
   })
 
   .on('connection', function(socket) {
-    
-    socket.on('ItemCreate', async (data) => {
-
-      let Write = {
-        "user": socket.uID,
-        "type": data.type,
-        "section": Helper.validateClient("section", data.section) ? data.section : "main",
-        "parent": data.type == "Span" ? "homepage" : Helper.truncate(data.parent, 128),
-        "data": data.type == "Span"
-          ? {
-            "id": uuidv1(),
-            "name": Helper.truncate(data.name, 128)
-          }
-          : {
-            "id": uuidv1(),
-            "name": Helper.truncate(data.name, 128),
-            "parent": Helper.truncate(data.parent, 128),
-            "type": {
-              "file": false,
-              "mime": "FOLDER"
-            },
-            "security": {
-              "pass": Helper.truncate(data.options.pass, 256) || '', 
-              "pin": Helper.truncate(data.options.pin, 256) || ''
-            },
-            "color": data.options.color || '',
-            "description": Helper.truncate(data.options.description, 512) || '',
-            "time": {
-              "created": {
-                "stamp": Helper.timeNow(),
-                "who": socket.uID
-              }
-            }
-          }
-      }
-
-      if (data.type.match(/Item|Folder|File|Span/i)) {
-        if (await Nano.Write(Write)) {
-          return await Send.Read_Send_Contents( 
-            { "user": Write.user,  "type":'ID',  "section":Write.section,  "path":[data.Path],  "contents":false },
-            { "ConType":"SOCKET",  "ConLink":socket } );
-        }
-      }      
-    })
-
-    socket.on('ItemEdit', async (data) => {
-      let EditItemIDs = (typeof data.ID == "object" ? data.ID : [data.ID]);
-      let Edit = {
-        "user": socket.uID,
-        "type": data.action,
-        "section": Helper.validateClient("section", data.section) ? data.section : "main",
-      };
-
-      if (data.action == "DATA") { Edit.changeTo = data.EditData; }
-      else if (data.action == "MOVE") { Edit.moveTo = data.To; }
-
-      // console.log(Edit); return;
-      let successfulWrite = false;
-      for (let i=0; i<EditItemIDs.length; i++) {
-        Edit.id = EditItemIDs[i];
-        if (!await Nano.Edit(Edit)) {break;} else { successfulWrite = true; }
-      }
-
-      if (successfulWrite) {
-        if (data.Path) { // Path states that we send back directory to User
-          return await Send.Read_Send_Contents( 
-            { "user":Edit.user,  "type":'ID',  "section":Edit.section,  "path":[data.Path],  "contents":false },
-            { "ConType":"SOCKET",  "ConLink":socket } );
-        }
-      }
-      return;
-    })
-
-    ////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////
-
-    socket.on('Share', async({Action, objectID, section, Params}) => {
-      if (Action == "Link") {
-        let linkID = '';
-        let file_name = uuidv3(objectID, socket.uID);
-        let Called_Information = await Nano.Read({"user": socket.uID, "type": "SPECIFIC", "section": section, "ids": [objectID], "keys": ["share","type"]});
-        Called_Information = Called_Information[objectID];
-        if (Called_Information.share && Called_Information.share.link) { linkID = Called_Information.share.link.url; }
-        else if (Called_Information) {
-          linkID = await generateShareLinkID(socket.uID, objectID, file_name, Called_Information.type.mime);
-          await Nano.Edit({ "user": socket.uID, "type": "DATA", "section": section, "id": objectID, "changeTo": {"share": {"link": {"url": linkID}}} })
-        }
-
-        let linkURL = 'https://link.nanode.one/'+linkID;
-        socket.emit('Link_Return', "LINK", linkURL);
-      }
-    })
-
-    generateShareLinkID = async (userID, objectID, file_name, mime) => {
-      let linkID = nanoid(16);
-      let linkinDB = await GetSet.writeShareLink(linkID, userID, objectID, file_name, mime);
-      if (linkinDB === false) { return linkID = generateShareLinkID(userID, objectID, file_name, mime); }
-      return linkID;
-    }
-
-    ////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////
 
     socket.on('Codex', async (CallData) => {  console.log("Deprecated No...? Port Calls over to new Nano."); return;
 
@@ -247,16 +146,6 @@ Mongo_Connect.connectToServer(function(err, client) {
         console.log("Not Logged In @ "+socket.uID);
       }
     })
-
-    socket.on('Bin', async (CallData) => {  console.log("Also Deprecated, Call Normally and set Section to Bin."); return;
-
-      let Action = CallData.emitAction; let Path = CallData.binItem; let Of = CallData.Of
-
-      if (Action != "Call") { await Nano_Writer.writeJSONObject(socket.uID, "Bin", Path, Of, Action); }
-      let binContent = await Nano_Reader.returnInformation(socket.uID, "Contents", "Bin", Of);
-      socket.emit('BinContent', binContent)
-    }) 
-
 
 
     socket.on('CallSettings', async (action, data) => {

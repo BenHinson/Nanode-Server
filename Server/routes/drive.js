@@ -131,10 +131,129 @@ Drive_Router.use('/settings', Nord.Middle, async (req, res, next) => {
 })
 
 // ============ POST ============
+// ============ POST ============
+// ============ POST ============
+
+Drive_Router.post('/search/:query', Nord.Middle, async(req, res) => {
+  const {body} = req;
+  const {color, folder, type, inside, description, date, shared, prevNames} = body;
+  // Search by color, folder:true/false, type:mime types, inside: parent/all, description: include desc, 
+  const userID = req.headers.uID;
+  
+  const searchQuery = req.params.query;
+  console.log(searchQuery);
+})
+
+Drive_Router.post('/create', Nord.Middle, async(req, res) => {
+  const {body} = req;
+  const {section, path, type, parent, name, options} = body;
+  const userID = req.headers.uID;
+
+  let Write = {
+    "user": userID,
+    "type": type,
+    "section": Helper.validateClient("section", section) ? section : "main",
+    "parent": type == "Span" ? "homepage" : Helper.truncate(parent, 128),
+    "data": type == "Span"
+      ? {
+        "id": uuidv1(),
+        "name": Helper.truncate(name, 128)
+      }
+      : {
+        "id": uuidv1(),
+        "name": Helper.truncate(name, 128),
+        "parent": Helper.truncate(parent, 128),
+        "type": {
+          "file": false,
+          "mime": "FOLDER"
+        },
+        "security": {
+          "pass": Helper.truncate(options.pass, 256) || '', 
+          "pin": Helper.truncate(options.pin, 256) || ''
+        },
+        "color": options.color || '',
+        "description": Helper.truncate(options.description, 512) || '',
+        "time": {
+          "created": {
+            "stamp": Helper.timeNow(),
+            "who": userID
+          }
+        }
+      }
+  }
+
+  if (type.match(/Item|Folder|File|Span/i)) {
+    if (await Nano.Write(Write)) {
+      return await Send.Read_Send_Contents( 
+        { "user": userID,  "type":'ID',  "section":Write.section,  "path":[path],  "contents":false },
+        { "ConType":"HTTP",  "ConLink":res } );
+    }
+  } 
+})
+
+Drive_Router.post('/edit', Nord.Middle, async(req, res) => {
+  const {body} = req;
+  const {section, path, action, id, data, to} = body;
+  const userID = req.headers.uID;
+
+  const Edit = {
+    "user": userID,
+    "type": action,
+    "section": Helper.validateClient("section", section) ? section : "main",
+  };
+
+  if (action == "DATA") { Edit.changeTo = data; }
+  else if (action == "MOVE") { Edit.moveTo = to; }
+  else if (action == "DELETE") { Edit.moveTo = 'bin'; }
+
+  const EditItemIDs = (typeof id == "object" ? id : [id]);
+  let writeSuccess = true;
+
+  for (let i=0; i<EditItemIDs.length; i++) { // Iterate Through All Editted Items. If a bad write, break loop and send error.
+    Edit.id = EditItemIDs[i];
+    let write = await Nano.Edit(Edit);
+    if (!write || write.Error) { writeSuccess={"message": write.Error.message || 'Internal', "code": write.Error.code || 400}; break; }
+  }
+
+  if (writeSuccess === true) {
+    if (path) { // Path states that we send back directory to User
+      return await Send.Read_Send_Contents(
+        { "user":userID,  "type":'ID',  "section":Edit.section,  "path":[path],  "contents":false },
+        { "ConType":"HTTP",  "ConLink":res } );
+    }
+  } else {
+    return await Send.Error(
+      { "Message": writeSuccess.message, "Code": writeSuccess.code },
+      { "ConType":"HTTP",  "ConLink":res } );
+  }
+})
+
+Drive_Router.post('/share', Nord.Middle, async(req, res) => {
+  const {body} = req;
+  const {ACTION, oID, SECTION} = body;
+  const userID = req.headers.uID;
+
+  if (ACTION && oID && SECTION && userID) {
+    if (ACTION == "LINK") {
+      let linkID, file_name = uuidv3(oID, userID);
+
+      let Called_Information = await Nano.Read({"user": userID, "type": "SPECIFIC", "section": SECTION, "ids": [oID], "keys": ["share","type"]});
+      Called_Information = Called_Information[oID];
+
+      if (Called_Information?.share?.link) { linkID = Called_Information.share.link.url; }
+      else if (Called_Information) {
+        linkID = await GetSet.writeShareLink(nanoid(16), userID, {oID, file_name, 'mime': Called_Information.type.mime})
+        await Nano.Edit({ "user": userID, "type": "DATA", "section": SECTION, "id": oID, "changeTo": {"share": {"link": {"url": linkID}}} })
+      }
+      return res.status(200).send({"link": `https://link.nanode.one/${linkID}`});
+    }
+  }
+  return res.status(401).send({"Error": "Invalid"});
+})
 
 Drive_Router.post('/download', Nord.Middle, async(req, res) => {
   const {body} = req;
-  if (body && body.FOR && body.NAME && body.ITEMS && body.SECTION && req.headers.uID != 'null') {
+  if (body && body.FOR && body.NAME && body.ITEMS && body.SECTION && req.headers.uID) {
     
     let zip = new JSZip();
     let zipData = {"size": 0, "contents": [], "title": body.NAME || 'Nanode_Collection'};
@@ -177,8 +296,6 @@ Write_File_To_Zip = async(Nano, Parent, zipData) => {
     .catch(err => {console.log('Couldnt find file '+Nano.contents.file); return 'Failed To Read'});
 }
 
-
-
 Drive_Router.post('/auth', Nord.Middle, async (req, res) => {
   // console.log("Have a key sent to the user that unlocks it for the session. Various Reasons...");
   const {body} = req;
@@ -197,7 +314,7 @@ Drive_Router.post('/auth', Nord.Middle, async (req, res) => {
 
 
 Upload_Object_Tree = {}; // Seperates Uploads by Account IDs
-Drive_Router.post('/upload/', Nord.Middle, async (req, res, next) => {
+Drive_Router.post('/upload', Nord.Middle, async (req, res, next) => {
   const {body} = req;
   if (body.message) {
     if (body.message == "Queue_Empty" && Upload_Object_Tree[req.headers.uID]) {Upload_Object_Tree[req.headers.uID] = []; return res.sendStatus(200);}

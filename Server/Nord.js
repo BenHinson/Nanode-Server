@@ -90,7 +90,7 @@ module.exports = {
     let Account = await module.exports.Check("HTTP", req, res);
     // console.log(Account);
     if (!Account.uID || Account.uID == false) {
-      if (req.originalUrl.match(/\/settings/)) {req.headers.uID = "null"; return next();}
+      if (req.originalUrl.match(/\/settings/)) {req.headers.uID = null; return next();}
       return res.redirect('https://account.Nanode.one/login'); }
     else {req.headers.uID = Account.uID; next(); }
     
