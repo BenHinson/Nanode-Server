@@ -198,6 +198,7 @@ module.exports = {
       async function Get_Nano_Children(id, Tree) {
         let Nano = await Nano_Get(user, ID_Query({"section":section, "query":[id], "contents":false}));
         Nano = Nano[0][section][id];
+        if (!Nano) { return Tree }
         Tree.Tree_Data.size += Nano.size || 1;
         Tree.Tree_Data.count += 1;
         Tree.Parent_Id.length ? Tree.Child_Id.push(Nano.id) : Tree.Parent_Id.push(Nano.id);

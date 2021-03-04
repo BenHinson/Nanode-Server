@@ -7,6 +7,8 @@ const MongoClient = require('mongodb').MongoClient;
 const Nanode_URL = "mongodb://localhost:27017/Nanode";
 const Nord_URL = "mongodb://localhost:27017/Nord";
 
+const Node_URL = "mongodb://localhost:27017/Node";
+
 const Collections = {};
 const Databases = {}
 
@@ -30,6 +32,13 @@ module.exports = {
 
       Databases["nord"] = client.db('Nord');
 
+      // return callback();
+    });
+
+    MongoClient.connect( Node_URL, {useUnifiedTopology: true, useNewUrlParser: true }, function( err, client ) {
+      console.log("Node MongoDB Connected...");
+      Databases["node"] = client.db('Node');
+
       return callback();
     })
   },
@@ -42,4 +51,3 @@ module.exports = {
     return Databases[database];
   }
 }
-

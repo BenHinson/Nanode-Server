@@ -21,6 +21,7 @@ const Nord = require('../Nord.js');
 const GetSet = require('../GetSet.js');
 const Helper = require('../helper.js');
 const Send = require('../Send.js');
+const Search = require('../Search.js');
 
 // const Encryptor = require('../Encryptor.js');
 
@@ -118,30 +119,29 @@ Drive_Router.use('/folder/:oID', Nord.Middle, async (req, res, next) => {
   return Helper.ErrorPage(res);
 })
 
-Drive_Router.use('/settings', Nord.Middle, async (req, res, next) => {
-  if (req.headers.uID != "null") {
-    let accountData = await GetSet.Account_Get(req.headers.uID, ["settings", "plan"]);
-    accountData = accountData[0];
-    if (typeof accountData.settings == 'undefined' || accountData.settings == false) {
-      await GetSet.Account_Write({ "user": req.headers.uID, "type": "Set", "parentKey": "settings", "data": Helper.Settings_Template }); 
-    }
-    else { res.send({"Settings": accountData.settings, "Plan": {"max": accountData.plan.max, "used": accountData.plan.used}}) }
-  } 
-  else { res.send({"Error": "NOT_LOGGED_IN"}) }
+Drive_Router.use('/settings/:section?', Nord.Middle, async (req, res, next) => {
+  let section = req.params.section;
+  if (section == 'bin') {
+    let size = await Nano.Read({"user": req.headers.uID, "CUSTOM": {'size.bin': 1}})
+    return res.send({"size": size.size});
+  }
+
+  let accountData = await GetSet.Account_Get(req.headers.uID, ["settings", "plan"]);
+  accountData = accountData[0];
+  if (typeof accountData.settings == 'undefined' || accountData.settings == false) {
+    await GetSet.Account_Write({ "user": req.headers.uID, "type": "Set", "parentKey": "settings", "data": Helper.Settings_Template }); 
+  }
+  else { res.send({"Settings": accountData.settings, "Plan": {"max": accountData.plan.max, "used": accountData.plan.used}}) }
 })
 
 // ============ POST ============
 // ============ POST ============
 // ============ POST ============
 
-Drive_Router.post('/search/:query', Nord.Middle, async(req, res) => {
+Drive_Router.post('/search', Nord.Middle, async(req, res) => {
   const {body} = req;
-  const {color, folder, type, inside, description, date, shared, prevNames} = body;
-  // Search by color, folder:true/false, type:mime types, inside: parent/all, description: include desc, 
-  const userID = req.headers.uID;
-  
-  const searchQuery = req.params.query;
-  console.log(searchQuery);
+  let searchResults = await Search.Find({"user": req.headers.uID, "input": body.input, "params": body})
+  return res.send(searchResults)
 })
 
 Drive_Router.post('/create', Nord.Middle, async(req, res) => {
