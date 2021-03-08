@@ -2,6 +2,7 @@ auth/
 Server/Keys.js
 Server/python
 Nano Tests
+SearchTwo.js
 
 # Logs
 logs

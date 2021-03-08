@@ -87,16 +87,16 @@ module.exports = {
   },
 
   Middle: async(req, res, next) => {
-    let Account = await module.exports.Check("HTTP", req, res);
-    // console.log(Account);
-    if (!Account.uID || Account.uID == false) {
-      if (req.originalUrl.match(/\/settings/)) {req.headers.uID = null; return next();}
-      return res.redirect('https://account.Nanode.one/login'); }
-    else {req.headers.uID = Account.uID; next(); }
-    
-    // req.headers.x -- becomes part of req. Doesnt get sent to client.
-    // res.setHeader('nauth', 'custom header'); -- gets sent to client.
-    // console.log( req.headers['nauth'] )
+    try {
+      let Account = await module.exports.Check("HTTP", req, res);
+      if (!Account.uID || Account.uID == false) {
+        if (req.originalUrl.match(/\/settings/)) {req.headers.uID = null; return next();}
+        return res.redirect('https://account.Nanode.one/login'); }
+      else {req.headers.uID = Account.uID; next(); }
+    } catch (error) {
+      console.log('Nord Middleware Error: '+ error);
+      return res.redirect('https://account.Nanode.one/login');
+    }
   },
 
   // ----- MONGO -----
@@ -164,9 +164,3 @@ SendCookie = async(Type, Response, Name, Cookie, Age) => {  //  SOCKET||HTTP , s
     return Response.cookie(Name, cookie_sign.sign(Cookie, Keys.SECRET_KEY), {domain: 'nanode.one', maxAge: Age, httpOnly: true, secure: true});
   }
 }
-
-
-
-
-
-

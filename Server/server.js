@@ -53,7 +53,8 @@ Start_Server = function() {
       fontSrc: ["'self'", 'fonts.gstatic.com', 'use.fontawesome.com'],
     }
   }));
-  app.use(helmet.featurePolicy({features: {camera: ["'none'"], microphone: ["'none'"],}}))
+  app.use(helmet.featurePolicy({features: {camera: ["'none'"]}}))
+  // app.use(helmet.featurePolicy({features: {camera: ["'none'"], microphone: ["'none'"],}}))
   app.use(function(err, req, res, next) {
     res.status(err.status || 500);
     res.json({ message: err.message, error: err });
@@ -68,6 +69,7 @@ Start_Server = function() {
   app.use(subdomain('dev', require('./routes/dev')))
   app.use(subdomain('link', require('./routes/link')))
   app.use(subdomain('spiral', require('./routes/spiral')))
+  app.use(subdomain('speech', require('./routes/speech')))
   app.use(express.static('../Nanode Client'));
 
   // ========== Error page Fallback ==========
