@@ -29,7 +29,7 @@ module.exports = {
 
 Match = async(user, Search, from=0, limit=5) => {
   let Result = [], searchEnd = null;
-  let userNodes = await LoadNodes(user, Search.section, Search.parent); // IMPORTANT: if loading from parent, check if its locked first. locked would require key. hmmm.
+  let userNodes = await LoadNodes(user, Search.section, Search.withinParent); // IMPORTANT: if loading from withinParent, check if its locked first. locked would require key. hmmm.
 
   if (from !== 0) { userNodes = Trim(userNodes, from); }
 
@@ -72,7 +72,7 @@ Match = async(user, Search, from=0, limit=5) => {
 Options = (Search, input, inputTwo, params) => {
   const {color, type, date, size} = params;     // Search By
   const {onlyFolders, onlyFiles, onlyShared} = params;      // Search Only For
-  const {parent} = params;                      // Search In
+  const {withinParent} = params;                      // Search In
   const {description, prevNames} = params;      // Include in Search
 
   Search.name = input;
@@ -86,7 +86,7 @@ Options = (Search, input, inputTwo, params) => {
   if (onlyFiles) { Search.onlyFiles = true }
   if (onlyShared) { Search.onlyShared = true }
   
-  if (parent) { Search.parent = parent }    // parent given as parent. input && inputTwo saved for the search values. Parent can be a span ID
+  if (withinParent) { Search.withinParent = withinParent }    // withinParent given as withinParent. input && inputTwo saved for the search values. Parent can be a span ID
   
   if (description) { Search.description = true }    // Also checks descriptions and preNames if there are.
   if (prevNames) { Search.prevNames = true }
@@ -97,10 +97,10 @@ Options = (Search, input, inputTwo, params) => {
   return Search
 }
 
-LoadNodes = async(user, section, parent) => { // Load User Nodes from Parent or Section
-  if (parent) {
+LoadNodes = async(user, section, withinParent) => { // Load User Nodes from Parent or Section
+  if (withinParent) {
     console.log("Loading Parent Tree...")
-    treeNodes = await Nano.Read({user, "type": 'TREE', section, "ids": [parent]});
+    treeNodes = await Nano.Read({user, "type": 'TREE', section, "ids": [withinParent]});
     return treeNodes.Child_Nano;
   } else {
     console.log("Loading Whole Section...")

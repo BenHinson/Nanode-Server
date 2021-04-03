@@ -20,6 +20,7 @@ Dev_Router.use(csp({
 
 Dev_Router.get('/:page?', function(req, res) {
   let page = req.params.page;
+  console.log('Dev Page Viewed at: '+new Date().toLocaleString())
   if (page == 'design') {
     res.sendFile('F:\\Nanode\\Nanode Client\\views\\design.html')
   } else {

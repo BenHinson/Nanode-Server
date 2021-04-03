@@ -154,8 +154,8 @@ module.exports = {
           } else {
             let Cookies = await Nord.Nord_Session("Nanode.one", doc[0].cookieID, doc[0].userID, nanoid(), new Date().getTime(), Helper.Device_Info("HTTP", req)) ///////////
 
-            res.cookie('nord', cookie_sign.sign(Cookies.Nord, Keys.SECRET_KEY), {domain: 'nanode.one', maxAge: 31536000000, httpOnly: true, secure: true}); // 1 Year
-            res.cookie('session', cookie_sign.sign(Cookies.Session, Keys.SECRET_KEY), {domain: 'nanode.one', maxAge: 31536000000, httpOnly: true, secure: true}); // 1 Day (86400 seconds in a day x 1000 to get ms)
+            await Nord.SetCookie('HTTP', res, 'nord', Cookies.Nord, 31536000000); // 1 Year
+            await Nord.SetCookie('HTTP', res, 'session', Cookies.Session, 86400000); // 1 Day
 
             return res.send({ "Acc_Server": "_Login" })
           }

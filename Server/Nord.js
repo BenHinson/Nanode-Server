@@ -78,8 +78,8 @@ module.exports = {
       let new_Session = {"Added": new Date().getTime(), "Dev_Added": Session.Dev_Added, "Dev_Info": Helper.Device_Info(Type, Connection), "Locked": Session.Locked}
       let Cookies = await module.exports.Nord_Update(Nord_Cookie.domain, Record._id, Nord_Cookie.cID, Nord_Cookie.uID, Nord_Cookie.sID, nanoid(), new_Session)
 
-      await SendCookie(Type, (Type == "SOCKET" ? Connection : Response), 'nord', Cookies.Nord, 31536000000);
-      await SendCookie(Type, (Type == "SOCKET" ? Connection : Response), 'session', Cookies.Session, 31536000000); // 86400000
+      await module.exports.SetCookie(Type, (Type == "SOCKET" ? Connection : Response), 'nord', Cookies.Nord, 31536000000);
+      await module.exports.SetCookie(Type, (Type == "SOCKET" ? Connection : Response), 'session', Cookies.Session, 86400000); // 86400000  31536000000
       
       return {"uID": Nord_Cookie.uID, "req": requestURL(Type, Connection)};
     }
@@ -90,12 +90,23 @@ module.exports = {
     try {
       let Account = await module.exports.Check("HTTP", req, res);
       if (!Account.uID || Account.uID == false) {
-        if (req.originalUrl.match(/\/settings/)) {req.headers.uID = null; return next();}
-        return res.redirect('https://account.Nanode.one/login'); }
-      else {req.headers.uID = Account.uID; next(); }
+        if (req.originalUrl.match(/\/settings|check/)) {req.headers.uID = null; return next();}
+        else { return res.redirect('https://account.Nanode.one/login'); } }
+      else {req.headers.uID = Account.uID; return next(); }
     } catch (error) {
       console.log('Nord Middleware Error: '+ error);
       return res.redirect('https://account.Nanode.one/login');
+    }
+  },
+
+  SetCookie: async(Type, Response, Name, Cookie, Age) => { //  SOCKET||HTTP , socket||res , Session||Nord , the encrypted cookie , max age in ms
+    if (Type == "SOCKET" && Response) {
+      Response.conn.transport.once('headers', (headers) => {
+        return headers['set-cookie'] = Name+"="+cookie_sign.sign(Cookie, Keys.SECRET_KEY)+"; Max-Age="+Age/1000+"; HttpOnly; Secure; Domain=nanode.one; path=/";
+        // return false; console.log("Cannot Sign Socket Cookies...")
+      })
+    } else if (Type == "HTTP") {
+      return Response.cookie(Name, cookie_sign.sign(Cookie, Keys.SECRET_KEY), {domain: 'nanode.one', maxAge: Age, httpOnly: true, secure: true});
     }
   },
 
@@ -135,7 +146,6 @@ module.exports = {
       .then(items => { return items.length ? items[0] : false })
       .catch((err) => { console.error(`Error finding cID: ${err}`); return false; })
   },
-
 }
 
 getCookie = function(encrypted_Cookie) {
@@ -152,15 +162,4 @@ completeCookie = function(type, cookie) {
 
 requestURL = function(Type, Connection) {
   return {"type": Type, "url": (Type == 'SOCKET' ? Connection.url : Connection.originalUrl)};
-}
-
-SendCookie = async(Type, Response, Name, Cookie, Age) => {  //  SOCKET||HTTP , socket||res , Session||Nord , the encrypted cookie , max age in ms
-  if (Type == "SOCKET" && Response) {
-    Response.conn.transport.once('headers', (headers) => {
-      return headers['set-cookie'] = Name+"="+cookie_sign.sign(Cookie, Keys.SECRET_KEY)+"; Max-Age="+Age/1000+"; HttpOnly; Secure; Domain=nanode.one; path=/";
-      // return false; console.log("Cannot Sign Socket Cookies...")
-    })
-  } else if (Type == "HTTP") {
-    return Response.cookie(Name, cookie_sign.sign(Cookie, Keys.SECRET_KEY), {domain: 'nanode.one', maxAge: Age, httpOnly: true, secure: true});
-  }
 }
