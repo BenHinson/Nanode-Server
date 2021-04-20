@@ -150,8 +150,10 @@ module.exports = {
       if (doc && doc.length) {
         bcrypt.compare(Password, doc[0].password, async (err, result) => {
           if (!result) {
+            Helper.CustomActivityLog({"action": 'FAILED Login Attempt', "reason": "Wrong Password", "email": Email})
             return res.send({ "Acc_Server": "Incorrect_Cred" })
           } else {
+            Helper.CustomActivityLog({"action": 'SUCCESSFUL Login Attempt', "email": Email})
             let Cookies = await Nord.Nord_Session("Nanode.one", doc[0].cookieID, doc[0].userID, nanoid(), new Date().getTime(), Helper.Device_Info("HTTP", req)) ///////////
 
             await Nord.SetCookie('HTTP', res, 'nord', Cookies.Nord, 31536000000); // 1 Year
@@ -161,6 +163,7 @@ module.exports = {
           }
         })
       } else {
+        Helper.CustomActivityLog({"action": 'FAILED Login Attempt', "reason": "Account Not Found", "email": Email})
         return res.send({ "Acc_Server": "Incorrect_Cred" })
       }
     })

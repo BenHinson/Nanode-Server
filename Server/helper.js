@@ -1,5 +1,4 @@
 const parser = require('ua-parser-js');
-const Nanode_Keys = require('./Keys.js');
 const Nano = require('./Nano.js');
 
 module.exports = {
@@ -29,6 +28,25 @@ module.exports = {
     // "HighL": "#8a97c5",
     "HighL": "#0bd9e5",
     "BGImg": "",
+  },
+
+  ActivityLog: function(req, data) {
+    if (req.get('host') == 'drive.nanode.one' && req.originalUrl !== '/') { return; }
+
+    const log = {
+      "path": req.protocol + '://' + req.get('host') + req.originalUrl,
+      "location": req.get('cf-ipcountry'),
+      "ip": req.headers['x-forwarded-for'] || req.connection.remoteAddres,
+      ...data,
+      "time": new Date().toLocaleString(),
+    }
+    console.log(log)
+  },
+  CustomActivityLog: function(data) {
+    console.log({
+      ...data,
+      "time": new Date().toLocaleString(),
+    });
   },
 
   validateClient: function(variable, input) {

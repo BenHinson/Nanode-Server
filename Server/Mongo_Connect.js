@@ -1,6 +1,7 @@
 // TO START THE MONGOOSE / MONGO SERVER
 // Command Prompt : cd /d F:\Nanode\MongoDB\bin
 // Then :          mongod.exe --dbpath "F:\\Nanode\MongoDB\data\db"
+// To Open CMD:    Ctrl+Shift+C
 
 const MongoClient = require('mongodb').MongoClient;
 

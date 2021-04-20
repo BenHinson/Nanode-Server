@@ -4,6 +4,8 @@ const csp = require(`helmet-csp`)
 const crypto = require('crypto');
 const corsOptions = {origin: 'https://dev.Nanode.one'}
 
+const Helper = require('../helper.js');
+
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
 //////////////////////////////////////////////////////////////////////
@@ -20,7 +22,7 @@ Dev_Router.use(csp({
 
 Dev_Router.get('/:page?', function(req, res) {
   let page = req.params.page;
-  console.log('Dev Page Viewed at: '+new Date().toLocaleString())
+  Helper.ActivityLog(req, {page: page || ''})
   if (page == 'design') {
     res.sendFile('F:\\Nanode\\Nanode Client\\views\\design.html')
   } else {

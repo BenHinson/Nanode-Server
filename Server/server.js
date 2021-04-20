@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const helmet = require('helmet')
 const csp = require(`helmet-csp`)
 const cors = require('cors');
+const featurePolicy = require("feature-policy");
 const cookie = require('cookie');
 const cookieParser = require('cookie-parser');
 const subdomain = require('express-subdomain');
@@ -14,7 +15,6 @@ app = express();
 router = express.Router({mergeParams: true});
 
 const ejs = require('ejs');
-
 
 Start_Server = function() {
   const options = {
@@ -39,7 +39,7 @@ Start_Server = function() {
   app.use(cors(corsOptions))
   app.use(bodyParser.urlencoded({extended: true}));
   app.use(bodyParser.json({limit: '50mb'}))
-  // app.use(helmet.featurePolicy({features: {camera: ["'none'"]}}))
+  app.use(featurePolicy({features: {camera: ["'none'"], geolocation: ["'none'"]}}))
   app.use(csp({
     directives: {
       connectSrc: ["'self'", '*.nanode.one', 'nanode.one', 'https://nanode.one/socket.io/','wss://nanode.one/socket.io/'],
@@ -66,6 +66,8 @@ Start_Server = function() {
 
   // ========== Account Login Check ==========
   app.get('/check', require('./Nord.js').Middle, async(req, res) => { return res.send({"loggedIn": req.headers.uID ? true : false}) })
+  // ========= Work-In-Progress Page =========
+  app.get('/new', function(req, res) { return res.status(200).sendFile('F:\\Nanode\\Nanode Client\\views\\new\\new.html'); })
   // ========== Error page Fallback ==========
   app.use(function (req, res, next) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); })
 
@@ -74,7 +76,7 @@ Start_Server = function() {
 const Keys = require('./Keys.js')
 const Mongo_Connect = require('./Mongo_Connect');
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////  Ctrl+Shift+C  ///////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Mongo_Connect.connectToServer(function(err, client) {

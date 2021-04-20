@@ -2,8 +2,12 @@ var express = require('express');
 var Spiral_Router = express.Router();
 const csp = require(`helmet-csp`)
 const corsOptions = {origin: 'https://spiral.Nanode.one'}
+const Helper = require('../helper.js');
 
-Spiral_Router.get('/', function(req, res) { res.sendFile('F:\\Nanode\\Nanode Client\\views\\spiral.html') });
+Spiral_Router.get('/', function(req, res) {
+  Helper.ActivityLog(req)
+  res.sendFile('F:\\Nanode\\Nanode Client\\views\\spiral.html');
+});
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////

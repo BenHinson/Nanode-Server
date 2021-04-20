@@ -18,32 +18,13 @@ const Nord_DB = Mongo_Connect.getDB("nord");
 
 // USER ACCOUNT PAGE, VIEW CONNECTED DEVICES, REMOVE / LOCK A DEVICE
 
-  // tray - all cookies
-  // Nord_Cookie - [ domain, cID(cookie ID), uID(user ID), sID(session ID) ]  |  Refresh Token  |  Verified With Sessions Device
-  // Session_Cookie - [ domain, sID(session ID), toc(time-of-creation), rot(rotational) ]  |  Access Token  |  Lasts 2 Hours, grants access for that time.
-
-  // 6 Points of Info in the Two Cookies.
-  // Session = Server Rotational Key, Session ID, Time Key.
-  // Nord = Cookie ID, User ID, Session ID
-
-  // If sessions dont match | Times > 2 Hours | Rotationals Dont Match
-  // Check Database for Cookie ID
-  // Check User IDs, Check Session Device Info, Check Session Time Info
-
 /////////////////////////////////////////////////////////
 
 // Nord.Check("SOCKET", socket)
 // Nord.Check("HTTP", req)
 
-// login: cookietest@nanode.one
-// password: c00kieTEST!
-
-// WhiteList
-// if (WhiteListID.indexOf(Nord_Cookie.uID) !== -1) { return {"uID": Nord_Cookie.uID, "req": requestURL(Type, Connection)} }
-// WhiteList
-
 // Nord WhiteList
-WhiteListID = ["41feb20c-ad74-4b57-abbb-a695334c3569","56d0bc91-229e-4109-9fd5-d968386518a6","69ebe365-398f-4340-b4a0-b51da339fa19"]
+const WhiteListID = Keys.WHITELIST;
 
 module.exports = {
 
@@ -89,6 +70,7 @@ module.exports = {
   Middle: async(req, res, next) => {
     try {
       let Account = await module.exports.Check("HTTP", req, res);
+      Helper.ActivityLog(req, Account);
       if (!Account.uID || Account.uID == false) {
         if (req.originalUrl.match(/\/settings|check/)) {req.headers.uID = null; return next();}
         else { return res.redirect('https://account.Nanode.one/login'); } }

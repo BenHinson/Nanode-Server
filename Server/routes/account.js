@@ -16,6 +16,7 @@ Account_Router.get('/', Nord.Middle, async (req, res) => { console.log('AccountP
 
 app.post('/login', async (req, res) => {
   if ( validator.isEmail(req.body.email) && req.body.password ) {
+    Helper.CustomActivityLog({"action": 'Login Attempt'})
     await GetSet.Account_Login(req.body.email, req.body.password, req, res);
   } else {
     return res.send({ "Acc_Server": "Incorrect_Cred" })
@@ -24,7 +25,7 @@ app.post('/login', async (req, res) => {
 
 app.post('/signup', async (req, res) => {
   if (validator.isEmail(req.body.email) && req.body.password) {
-    console.log('Account Creation at: '+new Date().toLocaleString())
+    Helper.CustomActivityLog({"action": 'Account Creation'})
     await GetSet.Account_Create(req.body.email, req.body.password, req, res);
   } else {
     return res.send({ "Acc_Server": "Invalid_Email" })
