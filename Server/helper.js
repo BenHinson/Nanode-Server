@@ -1,5 +1,5 @@
 const parser = require('ua-parser-js');
-const Nano = require('./Nano.js');
+
 
 module.exports = {
 
@@ -17,36 +17,8 @@ module.exports = {
   },
 
   Settings_Template: {
-    "LastAc": "",
-    "Dir": "Homepage",
-    "Bin": "5",
-    "LockF": 2,
-    "Date": 0,
-    "TimeZ": "0",
-    "Theme": 0,
-    "ViewT": 1,
-    // "HighL": "#8a97c5",
-    "HighL": "#0bd9e5",
-    "BGImg": "",
-  },
-
-  ActivityLog: function(req, data) {
-    if (req.get('host') == 'drive.nanode.one' && req.originalUrl !== '/') { return; }
-
-    const log = {
-      "path": req.protocol + '://' + req.get('host') + req.originalUrl,
-      "location": req.get('cf-ipcountry'),
-      "ip": req.headers['x-forwarded-for'] || req.connection.remoteAddres,
-      ...data,
-      "time": new Date().toLocaleString(),
-    }
-    console.log(log)
-  },
-  CustomActivityLog: function(data) {
-    console.log({
-      ...data,
-      "time": new Date().toLocaleString(),
-    });
+    "accessed": "",
+    "date": 0,
   },
 
   validateClient: function(variable, input) {
@@ -56,7 +28,7 @@ module.exports = {
         return input.match(/main|blocks|codex|bin/i) ? true : false; break;
       case('subSection'):
         return input.match(/main|blocks|codex/) ? true : false; break;
-      case("nanoID"):
+      case("nodeID"):
         return input.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i) ? true : false; break;
     }
   },
@@ -85,12 +57,6 @@ module.exports = {
 
   dupeNameIncrement: function (parent_object, name, num = 0) {
     return typeof parent_object[num+"_"+name] == 'undefined' ? (num == 0 ? name : num+"_"+name) : module.exports.dupeNameIncrement(parent_object, name, num+1);
-  },
-
-  securityValue: function(item, secLevel = 0) { // Convert security options to a numerical value
-    if (!item.security) {return secLevel;}
-    for (let key in item.security) { if (item.security[key].length || item.security[key].length === undefined ) { secLevel++; }  }
-    return secLevel;
   },
 
   truncate: function(string='', desired) {  // Shorten Length of String

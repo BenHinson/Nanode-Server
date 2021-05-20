@@ -56,38 +56,38 @@ Start_Server = function() {
   server.listen(443, () => { console.log('Running on Port', server.address().port) });
 
   // Subdomains
-  app.use(subdomain('drive', require('./routes/drive')))
-  app.use(subdomain('account', require('./routes/account')))
-  app.use(subdomain('dev', require('./routes/dev')))
-  app.use(subdomain('link', require('./routes/link')))
-  app.use(subdomain('spiral', require('./routes/spiral')))
-  app.use(subdomain('speech', require('./routes/speech')))
+  app.use(subdomain('drive', require('../API/subdomains/drive')))
+  app.use(subdomain('account', require('../API/subdomains/account')))
+  app.use(subdomain('dev', require('../API/subdomains/dev')))
+  app.use(subdomain('link', require('../API/subdomains/link')))
+  app.use(subdomain('spiral', require('../API/subdomains/spiral')))
+  app.use(subdomain('speech', require('../API/subdomains/speech')))
   app.use(express.static('../Nanode Client'));
 
   // ========== Account Login Check ==========
-  app.get('/check', require('./Nord.js').Middle, async(req, res) => { return res.send({"loggedIn": req.headers.uID ? true : false}) })
+  app.get('/check', require('../Middleware/Nord.js').Middle, async(req, res) => { return res.send({"loggedIn": req.headers.uID ? true : false}) })
   // ========= Work-In-Progress Page =========
-  app.get('/new', function(req, res) { return res.status(200).sendFile('F:\\Nanode\\Nanode Client\\views\\new\\new.html'); })
+  // app.get('/new', function(req, res) { return res.status(200).sendFile('F:\\Nanode\\Nanode Client\\views\\new\\new.html'); })
   // ========== Error page Fallback ==========
   app.use(function (req, res, next) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); })
 
 }
 
-const Keys = require('./Keys.js')
-const Mongo_Connect = require('./Mongo_Connect');
+const Keys = require('./keys.js')
+const Mongo = require('./mongo');
 
 /////////////////////////////////////  Ctrl+Shift+C  ///////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Mongo_Connect.connectToServer(function(err, client) {
+Mongo.connectToServer(function(err, client) {
   if (err) {console.log(`ERROR: ${err}`)}
   console.log("Successful MongoDB Connection.");
   
   Start_Server();
   
-  const Helper = require('./Helper.js');
-  const Nord = require('./Nord.js');
-  const Nano = require('./Nano.js');
-  const GetSet = require('./GetSet.js');
-  const Send = require('./Send.js');
+  const Helper = require('../helper.js');
+  const Nord = require('../Middleware/Nord.js');
+  const Node = require('../Node/node.js');
+  const Account = require('../Account/account.js');
+  const Send = require('../API/send.js');
 })

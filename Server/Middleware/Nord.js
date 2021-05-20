@@ -1,22 +1,18 @@
-// nord - Nano-Object-Record-Database
+// nord - Node-Object-Record-Database
 
 const CryptoJS = require("crypto-js");
-const crypto = require('crypto');
 
 const cookie = require('cookie');
 const cookie_sign = require('cookie-signature')
 
 const { nanoid } = require("nanoid");
 
-const Keys = require('./Keys.js');
-const Helper = require('./helper.js');
+const Keys = require('../Admin/keys.js');
+const Helper = require('../helper.js');
+const Logger = require('../Middleware/Logger.js')
 
-const Mongo_Connect = require('./Mongo_Connect.js');
-const Nord_DB = Mongo_Connect.getDB("nord");
-
-/////////////////////////////////////////////////////////
-
-// USER ACCOUNT PAGE, VIEW CONNECTED DEVICES, REMOVE / LOCK A DEVICE
+const Mongo = require('../Admin/mongo');
+const Nord_DB = Mongo.getDB("nord");
 
 /////////////////////////////////////////////////////////
 
@@ -70,7 +66,7 @@ module.exports = {
   Middle: async(req, res, next) => {
     try {
       let Account = await module.exports.Check("HTTP", req, res);
-      Helper.ActivityLog(req, Account);
+      Logger.ActivityLog(req, Account);
       if (!Account.uID || Account.uID == false) {
         if (req.originalUrl.match(/\/settings|check/)) {req.headers.uID = null; return next();}
         else { return res.redirect('https://account.Nanode.one/login'); } }

@@ -1,21 +1,20 @@
-const Nano = require('./Nano.js');
-const Helper = require('./helper.js');
+const Node = require('../Node/node.js');
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
 //////////////////////////////////////////////////////////////////////
 
 module.exports = {
-  Read_Send_Contents: async(NanoData, Connection) => {
-    const {user, type, section, subSection, contents, path} = NanoData;
+  Read_Send_Contents: async(NodeData, Connection) => {
+    const {user, type, section, subSection, contents, path} = NodeData;
     const {ConType, ConLink} = Connection;
   
-    let Result = await Nano.Read({"user": user, "type": type, "section": section, "subSection": subSection, "ids": path, "contents": contents || false});
+    let Result = await Node.Read({"user": user, "type": type, "section": section, "subSection": subSection, "ids": path, "contents": contents || false});
     if (Result) {
       Result = Result[path] || Result;
 
       if (section.match(/bin/)) {
-        Result = await module.exports.FormatResponse(section, Result, NanoData);
+        Result = await module.exports.FormatResponse(section, Result, NodeData);
       }
       
       let Result_Formatted = {
@@ -41,7 +40,7 @@ module.exports = {
     }
   },
 
-  FormatResponse: async(Format, Result, NanoData) => {
+  FormatResponse: async(Format, Result, NodeData) => {
     if (Result != 'Empty Query') {
       let fileTree;
 
@@ -57,9 +56,9 @@ module.exports = {
         }
         else if (Format == 'binInfo') {
           if (!data.type.file) {
-            fileTree = await Nano.Read({"user": NanoData.user, "type": 'TREE', "section": NanoData.section, "ids": [id], "contents": false});
+            fileTree = await Node.Read({"user": NodeData.user, "type": 'TREE', "section": NodeData.section, "ids": [id], "contents": false});
           }
-          let itemParent = await Nano.Read({"user": NanoData.user, "type": 'SPECIFIC', 'section': data.BIN_DATA.section, "ids": [data.BIN_DATA.parent], "keys": ["name", "description"]});
+          let itemParent = await Node.Read({"user": NodeData.user, "type": 'SPECIFIC', 'section': data.BIN_DATA.section, "ids": [data.BIN_DATA.parent], "keys": ["name", "description"]});
 
           Result[id] = {
             'name': data.name,
@@ -76,8 +75,3 @@ module.exports = {
     return Result;
   }
 }
-
-
-// Idea to allow access to locked folder after correct input.
-// securityAccess = { 'USERS ID + SessionID': { 'NODEID': TIME_OF_INPUT } }
-// Add Item/Node ID to users account and session id (May cause issues with changing session id's look into Nord for this) and check if xTime (30 mins or so) has ellapsed.

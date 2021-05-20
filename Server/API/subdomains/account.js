@@ -3,9 +3,9 @@ var Account_Router = express.Router();
 
 const validator = require('validator');
 
-const Nord = require('../Nord.js');
-const GetSet = require('../GetSet.js');
-const Helper = require('../Helper.js');
+const Nord = require('../../Middleware/Nord.js');
+const Account = require('../../Account/account.js');
+const Logger = require('../../Middleware/Logger.js')
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
@@ -16,8 +16,8 @@ Account_Router.get('/', Nord.Middle, async (req, res) => { console.log('AccountP
 
 app.post('/login', async (req, res) => {
   if ( validator.isEmail(req.body.email) && req.body.password ) {
-    Helper.CustomActivityLog({"action": 'Login Attempt'})
-    await GetSet.Account_Login(req.body.email, req.body.password, req, res);
+    Logger.CustomActivityLog({"action": 'Login Attempt'})
+    await Account.Login(req.body.email, req.body.password, req, res);
   } else {
     return res.send({ "Acc_Server": "Incorrect_Cred" })
   }
@@ -25,8 +25,8 @@ app.post('/login', async (req, res) => {
 
 app.post('/signup', async (req, res) => {
   if (validator.isEmail(req.body.email) && req.body.password) {
-    Helper.CustomActivityLog({"action": 'Account Creation'})
-    await GetSet.Account_Create(req.body.email, req.body.password, req, res);
+    Logger.CustomActivityLog({"action": 'Account Creation'})
+    await Account.Create(req.body.email, req.body.password, req, res);
   } else {
     return res.send({ "Acc_Server": "Invalid_Email" })
   }

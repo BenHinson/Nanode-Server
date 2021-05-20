@@ -1,11 +1,10 @@
 // ------ Nova Search Engine ------ 28/02/2021
 
-const Mongo_Connect = require('./Mongo_Connect.js');
-const Nano_Coll = Mongo_Connect.getColl("nano");
+const Mongo = require('../Admin/mongo');
+const Node_Coll = Mongo.getColl("node");
 
-const Nano = require('./Nano.js');
-const Helper = require('./helper.js');
-const { trim } = require('jquery');
+const Node = require('./node.js');
+const Helper = require('../helper.js');
 
 // =====================================================================
 
@@ -100,11 +99,11 @@ Options = (Search, input, inputTwo, params) => {
 LoadNodes = async(user, section, withinParent) => { // Load User Nodes from Parent or Section
   if (withinParent) {
     console.log("Loading Parent Tree...")
-    treeNodes = await Nano.Read({user, "type": 'TREE', section, "ids": [withinParent]});
-    return treeNodes.Child_Nano;
+    treeNodes = await Node.Read({user, "type": 'TREE', section, "ids": [withinParent]});
+    return treeNodes.Child_Node;
   } else {
     console.log("Loading Whole Section...")
-    return await Nano.Read({user, section, "CUSTOM": {[`${section}`]: 1}});
+    return await Node.Read({user, section, "CUSTOM": {[`${section}`]: 1}});
   }
 }
 

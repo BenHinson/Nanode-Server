@@ -9,10 +9,11 @@ const corsOptions = {origin: 'https://link.Nanode.one'}
 const crypto = require('crypto');
 const sharp = require('sharp');
 
-const Helper = require('../helper.js');
-const Nord = require('../Nord.js');
+const Helper = require('../../helper.js');
+const ReadWrite = require('../../Nano/ReadWrite.js');
+const Nord = require('../../Middleware/Nord.js');
+const Links = require('../../Account/links.js')
 
-const GetSet = require('../GetSet.js');
 
 
 // npm install ejs.
@@ -38,16 +39,9 @@ Link_Router.use(csp({
 Link_Router.use('/download/preview/:id', cors(corsOptions), async(req, res) => {
   let item = parseInt(req.query.item);
   if (typeof item != 'undefined' && Number.isInteger(item)) {
-    await GetSet.readDownloadLink(req.params.id).then(function(result) {
+    await Links.readDownloadLink(req.params.id).then(function(result) {
       if (result.for == "SHARE") {
-        fs.readFile('F:\\Nanode\\Files\\Mass\\'+result.preview[item].File, function(err, data) {
-          if (err) { return Helper.ErrorPage(res); } else {
-            res.setHeader("Content-Type", result.preview[item].Mime);
-            res.writeHead(200);
-            res.end(data);
-            return;
-          }
-        })
+        ReadWrite.Mass(res, result.preview[item].File, result.preview[item].Mime);
       }
     })
     return;
@@ -56,12 +50,12 @@ Link_Router.use('/download/preview/:id', cors(corsOptions), async(req, res) => {
 })
 
 Link_Router.use('/download/a/:id', async(req, res) => {
-  await GetSet.readDownloadLink(req.params.id).then(function(result) {
+  await Links.readDownloadLink(req.params.id).then(function(result) {
     if (result.for == "SELF") { return Helper.ErrorPage(res); }
     else if (result.for == "SHARE") {
       return res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", result.title+".zip", function(err) {
         if (err) {return Helper.ErrorPage(res);}
-        GetSet.incrementDownloadCount(result.url);
+        Links.incrementDownloadCount(result.url);
       })
     }
   }).catch((err) => { console.log(err); return Helper.ErrorPage(res); })
@@ -70,7 +64,7 @@ Link_Router.use('/download/a/:id', async(req, res) => {
 Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
   let Account = await Nord.Check("HTTP", req, res);
   let userID = Account.uID;
-  await GetSet.readDownloadLink(req.params.id).then(function(result) {
+  await Links.readDownloadLink(req.params.id).then(function(result) {
     if (result === false || (result.for == "SELF" && userID != result.owner)) { return Helper.ErrorPage(res); }
     if (result.for == "SELF" && userID == result.owner) {
       res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", result.title+".zip", function(err) {
@@ -95,17 +89,9 @@ Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
 })
 
 Link_Router.use('/:link', cors(corsOptions), async(req, res) => {
-  let fileName_mimeType = await GetSet.readShareLink(req.params.link).then(function(result) {
+  let fileName_mimeType = await Links.readShareLink(req.params.link).then(function(result) {
     if (result === false) { return Helper.ErrorPage(res); }
-    if (result.mime != "FOLDER") {
-      fs.readFile('F:\\Nanode\\Files\\Mass\\'+result.file, function(err, data) {
-        if (err) {return Helper.ErrorPage(res); } else {
-          res.setHeader("Content-Type", result.mime);
-          res.writeHead(200);
-          res.end(data);
-        }
-      });
-    }
+    if (result.mime != "FOLDER") { ReadWrite.Mass(res, result.file, result.mime); }
     if (result.mime == "FOLDER") {
       console.log(result)
       console.log("Folder Support Soon");
