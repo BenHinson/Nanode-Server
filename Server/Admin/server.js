@@ -16,6 +16,8 @@ router = express.Router({mergeParams: true});
 
 const ejs = require('ejs');
 
+const CACHE_TIME = 86400000; // 86400000 (24 hours)
+
 Start_Server = function() {
   const options = {
     key: fs.readFileSync('Server/auth/nanode.one.key'),
@@ -62,7 +64,7 @@ Start_Server = function() {
   app.use(subdomain('link', require('../API/subdomains/link')))
   app.use(subdomain('spiral', require('../API/subdomains/spiral')))
   app.use(subdomain('speech', require('../API/subdomains/speech')))
-  app.use(express.static('../Nanode Client'));
+  app.use(express.static('../Nanode Client', {maxAge: CACHE_TIME}));
 
   // ========== Account Login Check ==========
   app.get('/check', require('../Middleware/Nord.js').Middle, async(req, res) => { return res.send({"loggedIn": req.headers.uID ? true : false}) })

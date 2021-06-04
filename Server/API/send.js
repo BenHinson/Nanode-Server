@@ -32,6 +32,10 @@ module.exports = {
     }
   },
 
+  Message: async(Connection, status=200, msg) => {
+    return Connection.status(status).json(msg);
+  },
+
   Error: async(Error, Connection) => {
     if (ConType == "HTTP") {
       return ConLink.status(Error.Code || 400).send(Error.Message || 'Internal Error');

@@ -148,6 +148,8 @@ Drive_Router.post('/create', Nord.Middle, async(req, res) => {
       return await Send.Read_Send_Contents( 
         { "user": userID,  "type":'ID',  "section":section,  "path":[path],  "contents":false },
         { "ConType":"HTTP",  "ConLink":res } );
+    } else {
+      return Send.Message(res, 403, {"status": 'Failed'})
     }
   } 
 })
@@ -169,7 +171,7 @@ Drive_Router.post('/edit', Nord.Middle, async(req, res) => {
   const EditItemIDs = (typeof id == "object" ? id : [id]);
   let writeSuccess = true;
 
-  for (let i=0; i<EditItemIDs.length; i++) { // Iterate Through All Editted Items. If a bad write, break loop and send error.
+  for (let i=0; i<EditItemIDs.length; i++) { // Iterate Through All Edited Items. If a bad write, break loop and send error.
     Edit.id = EditItemIDs[i];
     let write = await Node.Edit(Edit);
     if (!write || write.Error) { writeSuccess={"message": write.Error.message || 'Internal', "code": write.Error.code || 400}; break; }
@@ -180,6 +182,8 @@ Drive_Router.post('/edit', Nord.Middle, async(req, res) => {
       return await Send.Read_Send_Contents(
         { "user":userID,  "type":'ID',  "section":Edit.section,  "path":[path],  "contents":false },
         { "ConType":"HTTP",  "ConLink":res } );
+    } else {
+      return Send.Message(res, 200, {"status": `${action} successful`})
     }
   } else {
     return await Send.Error(
@@ -235,7 +239,7 @@ Drive_Router.post('/auth', Nord.Middle, async (req, res) => {
       { "user":req.headers.uID,  "type":'ID', section,  "path":[oID],  "contents":false },
       { "ConType":"HTTP",  "ConLink":res } );
   }
-  return res.status(401).send({"Error": "Invalid"});
+  return res.status(200).send({"Error": "Invalid"});
 })
 
 Drive_Router.post('/upload', Nord.Middle, async (req, res, next) => {
@@ -243,7 +247,6 @@ Drive_Router.post('/upload', Nord.Middle, async (req, res, next) => {
   const {message, meta, chunk_info, file} = req.body;
 
   if (message) {
-    console.log(message);
     if (message == "Queue_Empty" && ReadWrite.UploadCheck(userID)) { ReadWrite.UploadCheck(userID, 'reset'); return res.sendStatus(200);}
     if (message = "Cancelled") { console.log("Upload Cancelled, empty Tree and Remove file chunks?"); return res.sendStatus(200); }
   }
@@ -252,7 +255,7 @@ Drive_Router.post('/upload', Nord.Middle, async (req, res, next) => {
   const upload_chunk_size = Buffer.byteLength(FileData);
 
   let Allocation = await Security.Upload_Limit(userID, upload_chunk_size, chunk_info, meta);
-  if (Allocation.auth === false) { return res.status(403).json({ "status": Allocation.msg }); }
+  if (Allocation.auth === false) { return Send.Message(res, 403, {"status": Allocation.msg}) }
 
   if (Allocation.auth === true && FileData) {
     
@@ -269,11 +272,11 @@ Drive_Router.post('/upload', Nord.Middle, async (req, res, next) => {
       meta.size = Allocation.size;
       meta.type = result.file_type?.mime || meta.type;
       await ReadWrite.Write_To_User_File(userID, result.file_oID, meta);
-      return res.status(200).json({ "status": "Complete", "plan": Allocation.plan });
+      return Send.Message(res, 200, {"status": "Complete", "plan": Allocation.plan})
     }
-    return res.status(200).json({ "status": result });
+    return Send.Message(res, 200, {"status": result})
    } else {
-    return res.status(403).json({ "status": "Incomplete" });
+    return Send.Message(res, 403, {"status": "Incomplete"})
   }
 })
 
