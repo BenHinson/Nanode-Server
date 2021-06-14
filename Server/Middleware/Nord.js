@@ -37,16 +37,18 @@ module.exports = {
     // @ SESSION COOKIE CHECK
     let Session_Cookie = getCookie(tray.session);
     if (completeCookie('SESSION', Session_Cookie)) {
-
       if ((Session_Cookie.toc + 7200000 > new Date().getTime())
         && (Session_Cookie.sID == Nord_Cookie.sID)
         && (Session_Cookie.rot == Keys.ROTATION_KEY)
         ) { return {"uID": Nord_Cookie.uID, "req": requestURL(Type, Connection)}; }
-
     }
+    // console.log(Nord_Cookie);
+    // console.log(Session_Cookie);
 
     // @ DATABASE CALL AND CHECK
     let Record = await module.exports.Nord_Return(Nord_Cookie.domain, Nord_Cookie.cID);
+    // console.log(Record);
+    
     if (!Record || Record.uID != Nord_Cookie.uID) { return {"uID": false, "err": "No Match User ID", "req": requestURL(Type, Connection)} };
     let Session = Record.sessions[Nord_Cookie.sID];
     if (!Session || Session.Locked !== false) { return {"uID": false, "err": "No Such Session or Locked", "req": requestURL(Type, Connection)} };

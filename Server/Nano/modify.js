@@ -19,7 +19,7 @@ module.exports = {
       .toBuffer((err, data, info) => { return res.end(data); })
   },
 
-  ZipFile: async function(res, userID, params) {
+  ZipFile: async function(res, userID, params) { // https://youtu.be/GQlgR_69dmI?t=1983  Could help reduce time to zip and server load
     const {FOR, NAME, ITEMS, SECTION} = params;
 
     let zip = new JSZip();

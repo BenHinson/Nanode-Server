@@ -95,7 +95,7 @@ module.exports = {
         [`${section}.${data.id}`] : {...Node_Item, ...data},
         [`${section}.${data.parent}.contents.${data.id}`]: Short_Contents(data),
       }
-      Mongo.$push = { [`recent.${section}`]: {$each: [data.id], $slice: -8} }
+      if (type !== 'Folder') { Mongo.$push = { [`recent.${section}`]: {$each: [data.id], $slice: -8} } }
       Mongo.$inc = { [`size.total.${Helper.BaseType(data.type.mime)}`]: data.size || 1 }
     } else {return false;}
     
@@ -123,6 +123,8 @@ module.exports = {
       }
     }
     else if (type == "MOVE" && moveTo) {
+      if (current.parent == moveTo) { return true; }
+
       Mongo.$set = {};
       const External = moveTo.match(/bin|main|codex|block/); // Dont use i tag: (_MAIN_ will match 'main' if not)
       if (moveTo == "homepage" && section == "main") { moveTo = "_GENERAL_" };
@@ -168,37 +170,39 @@ module.exports = {
   },
 
   Read: async(Query, Project={}) => {
-    const {user, type, section, subSection, ids, contents, keys, internal, CUSTOM} = Query;
+    const {user, type, section, subSection, ids=[], contents, keys, internal, CUSTOM} = Query;
 
     if (CUSTOM) {
       Project = CUSTOM;
     }
-    else if (type == "ID") {    // Returns either full node of specified or its contents
+    else if (type == "ID") {    // Returns either long-node of specified or its contents
       if (ids[0].match(/home|homepage/i)) {
         let Spans = await Node_Get(user, {[`home.${section}`]: 1});
         let ProjectQuery = (Spans[0]['home'][section][subSection] || Spans[0]['home'][section])
-        Project = ID_Query({"section":section, "query":ProjectQuery});
+        Project = ID_Query({section, "query": ProjectQuery});
       } else {
-        Project = ID_Query({"section":section, "query":ids, "contents":contents});
+        Project = ID_Query({section, "query": ids, contents});
       }
     }
     else if (type == "RAW") {     // Returns the long-node of items contents 
-      let ID_Contents = await Node_Get(user, ID_Query({"section":section, "query":ids, "contents":true}));
+      let ID_Contents = await Node_Get(user, ID_Query({section, "query":ids, "contents":true}));
       let List_Of_IDs = [];
       for (const item in ID_Contents[0][section]) {
         List_Of_IDs = List_Of_IDs.concat(Object.keys( ID_Contents[0][section][item].contents ))
       }
-      Project = ID_Query({"section":section, "query":List_Of_IDs});
+      Project = ID_Query({section, "query":List_Of_IDs});
     } 
     else if (type == "SPECIFIC") {    // Returns Specific Values from Nodes
       // EXAMPLE => let Type = await Node.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [WantedURL], "keys": ["type"]});
+
       ids.forEach(id => { Project[`${section}.${id}`] = Key_Query(keys) })
     }
     else if (type == "TREE") {    // Returns Array of Children IDs & Children Nodes from Object
+      // https://youtu.be/GQlgR_69dmI?t=620  could this help speed up this code and reduce it maybe?
       return await Get_Node_Children(ids[0], {"Tree_Data": {'size': 0, 'count': 0}, "Parent_Id": [], "Parent_Node": {}, "Child_Id": [], "Child_Node": {}});
 
       async function Get_Node_Children(id, Tree) {
-        let Node = await Node_Get(user, ID_Query({"section":section, "query":[id], "contents":false}));
+        let Node = await Node_Get(user, ID_Query({section, "query":[id], "contents":false}));
         Node = Node[0][section][id];
         if (!Node) { return Tree }
         Tree.Tree_Data.size += Node.size || 1;
@@ -214,10 +218,19 @@ module.exports = {
         return Tree;
       }
     }
+    else { return {"Error": 'Failed to Request a valid Type'}; }
 
     // console.log(Project);
     let Result = await Node_Get(user, Project);
     return Result[0][section] || Result[0];
+  },
+
+  // ==============
+
+  Custom_Update: async(Update, Mongo={}) => {
+    const {user, ACTION, KEY, CUSTOM} = Update;
+    Mongo[ACTION] = { [KEY]: CUSTOM }
+    return await Node_Set(user, Mongo);
   },
 
   // ==============

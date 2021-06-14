@@ -16,7 +16,8 @@ const Node = require('../../Node/node.js');
 const ReadWrite = require('../../Nano/ReadWrite.js');
 const Modify = require('../../Nano/modify.js');
 const Search = require('../../Node/Search.js');
-const Security = require('../../Node/security.js')
+const Security = require('../../Node/security.js');
+const Recent = require('../../Node/recent.js');
 const Account = require('../../Account/account.js');
 const Links = require('../../Account/links.js');
 const Helper = require('../../helper.js');
@@ -56,19 +57,21 @@ Drive_Router.use('/storage/:content', Nord.Middle, async (req, res, next) => {
   let imgWidth = (req.query.w == "null") ? null : parseInt(req.query.w || null);
   let section = Helper.validateClient("section", req.query.s) ? req.query.s : "main";
 
-  // let codex = parseInt(req.query.cdx); // SEND CODEX THROUGH A DIFFERNT URL.
-
   let Type = await Node.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [WantedURL], "keys": ["type"]});
   Type = Type[WantedURL]?.type;
 
-  if (typeof Type !== 'undefined' && Type.mime) {
-
+  if (typeof Type !== 'undefined') {
+    if (!Type.file) { return Helper.ErrorPage(res) }
+  
+    if (!imgHeight && !imgWidth) { Recent.Push({"user": userID, section, "id": WantedURL}) }
+  
     Type.mime.includes('image') && !Type.mime.includes('svg') 
       ? resize = {"width": imgWidth || null, "height": imgHeight || null} 
       : resize = false;
 
     return ReadWrite.Mass(res, uuidv3(WantedURL, userID), Type.mime, resize);
   }
+
 })
 
 Drive_Router.use('/user/:section?/:item?', Nord.Middle, async (req, res, next) => {
@@ -109,6 +112,19 @@ Drive_Router.use('/folder/:oID', Nord.Middle, async (req, res, next) => {
   return Helper.ErrorPage(res);
 })
 
+Drive_Router.use('/activity/:action/:section?', Nord.Middle, async (req, res, next) => {
+  let userID = req.headers.uID;
+  let section = Helper.validateClient("section", req.params.section) || "main";
+  let action = req.params.action;
+  
+  if (userID && action && section) {
+    if (action == 'recent') {
+      return res.status(200).send(await Recent.Fetch({userID, section}));
+    }
+  }
+  return Helper.ErrorPage(res);
+})
+
 Drive_Router.use('/account/:data?', Nord.Middle, async (req, res, next) => {
   if (req.params.data == 'bin') {
     let size = await Node.Read({"user": req.headers.uID, "CUSTOM": {'size.bin': 1}})
@@ -135,8 +151,9 @@ Drive_Router.post('/search', Nord.Middle, async(req, res) => {
 
 Drive_Router.post('/create', Nord.Middle, async(req, res) => {
   const userID = req.headers.uID;
-  const {path, type, parent, name, options} = req.body;
+  let {path, type, parent, name, options} = req.body;
   const section = Helper.validateClient("section", req.body.section) ? req.body.section : "main";
+  if (parent == '_MAIN_') { parent = '_GENERAL_' };
 
   if (type.match(/Item|Folder|File|Span/i)) {
     const written = await Node.Create(type,
@@ -168,7 +185,7 @@ Drive_Router.post('/edit', Nord.Middle, async(req, res) => {
   else if (action == "MOVE") { Edit.moveTo = to; }
   else if (action == "DELETE") { Edit.moveTo = 'bin'; }
 
-  const EditItemIDs = (typeof id == "object" ? id : [id]);
+  const EditItemIDs = Array.isArray(id) ? id : [id];
   let writeSuccess = true;
 
   for (let i=0; i<EditItemIDs.length; i++) { // Iterate Through All Edited Items. If a bad write, break loop and send error.
@@ -178,6 +195,8 @@ Drive_Router.post('/edit', Nord.Middle, async(req, res) => {
   }
 
   if (writeSuccess === true) {
+    if (action !== "DELETE") { Recent.Push({"user": userID, section, "id": EditItemIDs}) }
+
     if (path) { // Path states that we send back directory to User
       return await Send.Read_Send_Contents(
         { "user":userID,  "type":'ID',  "section":Edit.section,  "path":[path],  "contents":false },
@@ -216,14 +235,10 @@ Drive_Router.post('/share', Nord.Middle, async(req, res) => {
 
 Drive_Router.post('/download', Nord.Middle, async(req, res) => {
   const {FOR, NAME, ITEMS, SECTION} = req.body;
-  const userID = req.headers.uID;
   
   if (FOR && NAME && ITEMS && SECTION) {
-    try {
-      return await Modify.ZipFile(res, userID, req.body);
-    } catch (error) {
-      console.error(error);
-    }
+    try { return await Modify.ZipFile(res, req.headers.uID, req.body); }
+    catch (error) {console.error(error);}
   }
   return res.status(401).send({"Error": "Invalid"});
 })
@@ -254,7 +269,7 @@ Drive_Router.post('/upload', Nord.Middle, async (req, res, next) => {
   const FileData = Buffer.from(file);
   const upload_chunk_size = Buffer.byteLength(FileData);
 
-  let Allocation = await Security.Upload_Limit(userID, upload_chunk_size, chunk_info, meta);
+  let Allocation = await Security.Upload_Limit(userID, upload_chunk_size, chunk_info, meta); // Checks User Plan against the upload.
   if (Allocation.auth === false) { return Send.Message(res, 403, {"status": Allocation.msg}) }
 
   if (Allocation.auth === true && FileData) {

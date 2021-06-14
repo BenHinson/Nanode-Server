@@ -19,7 +19,6 @@ Upload_Object_Tree = {}; // Seperates Uploads by Account IDs
 //////////////////////////////////////////////////////////////////////
 
 module.exports = {
-
   Mass: function(res, id, mimetype, resize) {
     // console.log(MassDirectory+id);
     fs.readFile(MassDirectory+id, async(err, data) => {
@@ -92,8 +91,6 @@ Create_Folders = async(relative_path, user, meta) => {
 }
 Create_New_Item = async(userID, oID, parent, meta) => {
   const {section, name, size, isFi, type, modified} = meta;
-
-  // Create to check against users storage plan and size spare.
 
   let written_size = await Node.Create('Item',
     {userID, section, parent, oID},

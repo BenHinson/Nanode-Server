@@ -8,20 +8,21 @@ module.exports = {
   Read_Send_Contents: async(NodeData, Connection) => {
     const {user, type, section, subSection, contents, path} = NodeData;
     const {ConType, ConLink} = Connection;
-  
-    let Result = await Node.Read({"user": user, "type": type, "section": section, "subSection": subSection, "ids": path, "contents": contents || false});
+
+    let Result = await Node.Read({user, type, section, subSection, "ids": path, contents});
+
     if (Result) {
-      Result = Result[path] || Result;
+      DIRECTORY = Result[path] || Result;
 
       if (section.match(/bin/)) {
-        Result = await module.exports.FormatResponse(section, Result, NodeData);
+        DIRECTORY = await module.exports.FormatResponse(section, DIRECTORY, NodeData);
       }
       
       let Result_Formatted = {
-        "Parent": {"name": Result.name || "homepage", "id": Result.id || "homepage"},
-        "Contents": Result.id
-          ? { [Result.id]: { "name": Result.name, "contents": Result.contents } } // For Folders
-          : Result // For Homepage
+        "Parent": {"name": DIRECTORY.name || "homepage", "id": DIRECTORY.id || "homepage"},
+        "Contents": DIRECTORY.id
+          ? { [DIRECTORY.id]: { "name": DIRECTORY.name, "contents": DIRECTORY.contents } } // For Folders
+          : DIRECTORY // For Homepage
       }
 
       if (ConType == "HTTP") {
@@ -49,7 +50,6 @@ module.exports = {
       let fileTree;
 
       for (const [id, data] of Object.entries(Result)) {
-  
         if (Format == 'bin') {
           Result[id] = {
             'name': data.name,

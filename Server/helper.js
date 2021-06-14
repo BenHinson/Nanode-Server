@@ -25,11 +25,11 @@ module.exports = {
     if (!input) { return null; }
     switch (variable) {
       case("section"): 
-        return input.match(/main|blocks|codex|bin/i) ? true : false; break;
+        return input.match(/main|blocks|codex|bin/i) ? input : false; break;
       case('subSection'):
-        return input.match(/main|blocks|codex/) ? true : false; break;
+        return input.match(/main|blocks|codex/) ? input : false; break;
       case("nodeID"):
-        return input.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i) ? true : false; break;
+        return input.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[1][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i) ? input : false; break;
     }
   },
 
