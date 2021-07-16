@@ -1,4 +1,4 @@
-var fs = require('fs-extra');
+const fs = require('fs-extra');
 const uuidv1 = require('uuid/v1');
 const uuidv3 = require('uuid/v3');
 const FileType = require('file-type');
@@ -14,7 +14,7 @@ const MassDirectory = `${UploadLocation}/Mass/`;
 const Chunk_Storage = `${UploadLocation}/Chunks/`;
 const End_Storage = `${UploadLocation}/Mass/`;
 
-Upload_Object_Tree = {}; // Seperates Uploads by Account IDs
+const Upload_Object_Tree = {}; // Seperates Uploads by Account IDs
 
 //////////////////////////////////////////////////////////////////////
 
@@ -73,7 +73,7 @@ module.exports = {
   },
 }
 
-Create_Folders = async(relative_path, user, meta) => {
+const Create_Folders = async(relative_path, user, meta) => {
   let previous_Folder;
   for (let i=0; i<relative_path.length; i++) {
     if (!relative_path[i]) { continue; }
@@ -89,7 +89,7 @@ Create_Folders = async(relative_path, user, meta) => {
   // let lastFolder = Upload_Object_Tree[user].find(item => meta[relative_path.slice(-1)]); // I may be able to remove these and replace with the previous_Folder variable;
   // return relative_path.length ? lastFolder[relative_path.slice(-1)].id : null; // I may be able to remove these and replace with the previous_Folder variable;
 }
-Create_New_Item = async(userID, oID, parent, meta) => {
+const Create_New_Item = async(userID, oID, parent, meta) => {
   const {section, name, size, isFi, type, modified} = meta;
 
   let written_size = await Node.Create('Item',

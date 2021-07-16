@@ -1,6 +1,6 @@
-var fs = require('fs-extra');
-var express = require('express');
-var Drive_Router = express.Router();
+const fs = require('fs-extra');
+const express = require('express');
+const Drive_Router = express.Router();
 
 const csp = require(`helmet-csp`)
 const cors = require('cors');
@@ -65,9 +65,9 @@ Drive_Router.use('/storage/:content', Nord.Middle, async (req, res, next) => {
   
     if (!imgHeight && !imgWidth) { Recent.Push({"user": userID, section, "id": WantedURL}) }
   
-    Type.mime.includes('image') && !Type.mime.includes('svg') 
-      ? resize = {"width": imgWidth || null, "height": imgHeight || null} 
-      : resize = false;
+    let resize = Type.mime.includes('image') && !Type.mime.includes('svg')
+      ? {"width": imgWidth || null, "height": imgHeight || null}
+      : false;
 
     return ReadWrite.Mass(res, uuidv3(WantedURL, userID), Type.mime, resize);
   }

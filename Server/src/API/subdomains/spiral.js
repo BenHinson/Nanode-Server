@@ -1,5 +1,5 @@
-var express = require('express');
-var Spiral_Router = express.Router();
+const express = require('express');
+const Spiral_Router = express.Router();
 const csp = require(`helmet-csp`)
 const corsOptions = {origin: 'https://spiral.Nanode.one'}
 

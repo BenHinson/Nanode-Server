@@ -12,7 +12,7 @@ module.exports = {
     let Result = await Node.Read({user, type, section, subSection, "ids": path, contents});
 
     if (Result) {
-      DIRECTORY = Result[path] || Result;
+      const DIRECTORY = Result[path] || Result;
 
       if (section.match(/bin/)) {
         DIRECTORY = await module.exports.FormatResponse(section, DIRECTORY, NodeData);

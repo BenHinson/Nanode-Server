@@ -1,7 +1,7 @@
 const Node = require('../Node/node.js');
 const Account = require('../Account/account.js');
 
-Upload_File_Tree = {}; // Holds data about uploaded files to protect against files too large or edited file sizes.
+const Upload_File_Tree = {}; // Holds data about uploaded files to protect against files too large or edited file sizes.
 
 module.exports = {
   Checker: async({userID, section, oID, wanted, input}) => {

@@ -26,7 +26,7 @@ module.exports = {
   }
 }
 
-Match = async(user, Search, from=0, limit=5) => {
+const Match = async(user, Search, from=0, limit=5) => {
   let Result = [], searchEnd = null;
   let userNodes = await LoadNodes(user, Search.section, Search.withinParent); // IMPORTANT: if loading from withinParent, check if its locked first. locked would require key. hmmm.
 
@@ -68,7 +68,7 @@ Match = async(user, Search, from=0, limit=5) => {
   return {"Found": Result, "Ended": searchEnd};
 }
 
-Options = (Search, input, inputTwo, params) => {
+const Options = (Search, input, inputTwo, params) => {
   const {color, type, date, size} = params;     // Search By
   const {onlyFolders, onlyFiles, onlyShared} = params;      // Search Only For
   const {withinParent} = params;                      // Search In
@@ -96,7 +96,7 @@ Options = (Search, input, inputTwo, params) => {
   return Search
 }
 
-LoadNodes = async(user, section, withinParent) => { // Load User Nodes from Parent or Section
+const LoadNodes = async(user, section, withinParent) => { // Load User Nodes from Parent or Section
   if (withinParent) {
     console.log("Loading Parent Tree...")
     treeNodes = await Node.Read({user, "type": 'TREE', section, "ids": [withinParent]});
@@ -107,19 +107,19 @@ LoadNodes = async(user, section, withinParent) => { // Load User Nodes from Pare
   }
 }
 
-Trim = (nodes, from) => { // 'Load More' has been Called. Remove Already Found Objects.
+const Trim = (nodes, from) => { // 'Load More' has been Called. Remove Already Found Objects.
   // Wont be called nearly as often as general search. Saves on always converting to array.
   nodes = Object.entries(nodes).map((e) => ( { [e[0]]: e[1] } ));  // Convert to Array
   nodes.slice( nodes.indexOf( nodes[from] ) ); // Remove all already searched items.
   return Object.fromEntries(nodes);  // Convert back to Object
 }
 
-Score = (node) => { // Provide an ordering score based on params
+const Score = (node) => { // Provide an ordering score based on params
   // Match - Max Score
   // Includes - Less Score
 }
 
-SafeForWeb = (node) => { // Remove any compromising data from the node
+const SafeForWeb = (node) => { // Remove any compromising data from the node
   return {
     "id": node.id,
     "name": node.name,

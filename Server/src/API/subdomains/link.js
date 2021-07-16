@@ -1,9 +1,9 @@
-var fs = require('fs-extra');
-var express = require('express');
-var Link_Router = express.Router();
+const fs = require('fs-extra');
+const express = require('express');
+const Link_Router = express.Router();
 
 const csp = require(`helmet-csp`)
-var cors = require('cors');
+const cors = require('cors');
 const corsOptions = {origin: 'https://link.Nanode.one'}
 
 const crypto = require('crypto');

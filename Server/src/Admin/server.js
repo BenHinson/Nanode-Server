@@ -10,19 +10,19 @@ const featurePolicy = require("feature-policy");
 const cookie = require('cookie');
 const cookieParser = require('cookie-parser');
 const subdomain = require('express-subdomain');
-express = require('express');
-app = express();
-router = express.Router({mergeParams: true});
+const express = require('express');
+const app = express();
+const router = express.Router({mergeParams: true});
 
 const ejs = require('ejs');
 
 const CACHE_TIME = 86400000; // 86400000 (24 hours)
 
-Start_Server = function() {
+const Start_Server = function() {
   const options = {
-    key: fs.readFileSync('Server/auth/nanode.one.key'),
-    cert: fs.readFileSync('Server/auth/nanode.one.crt'),
-    ca: fs.readFileSync('Server/auth/origin_ca_rsa_root.pem'),
+    key: fs.readFileSync('F:\\Nanode/Nanode Server/auth/nanode.one.key'),
+    cert: fs.readFileSync('F:\\Nanode/Nanode Server/auth/nanode.one.crt'),
+    ca: fs.readFileSync('F:\\Nanode/Nanode Server/auth/origin_ca_rsa_root.pem'),
   }
 
   const corsOptions = {
@@ -64,7 +64,7 @@ Start_Server = function() {
   app.use(subdomain('link', require('../API/subdomains/link')))
   app.use(subdomain('spiral', require('../API/subdomains/spiral')))
   app.use(subdomain('speech', require('../API/subdomains/speech')))
-  app.use(express.static('../Nanode Client', {maxAge: CACHE_TIME}));
+  app.use(express.static('F:\\Nanode/Nanode Client', {maxAge: CACHE_TIME}));
 
   // ========== Account Login Check ==========
   app.get('/check', require('../Middleware/Nord.js').Middle, async(req, res) => { return res.send({"loggedIn": req.headers.uID ? true : false}) })

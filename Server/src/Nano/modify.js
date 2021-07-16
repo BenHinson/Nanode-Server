@@ -1,4 +1,4 @@
-var fs = require('fs-extra');
+const fs = require('fs-extra');
 
 const sharp = require('sharp');
 const JSZip = require("jszip");

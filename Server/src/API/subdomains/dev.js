@@ -1,5 +1,5 @@
-var express = require('express');
-var Dev_Router = express.Router();
+const express = require('express');
+const Dev_Router = express.Router();
 const csp = require(`helmet-csp`)
 const crypto = require('crypto');
 const corsOptions = {origin: 'https://dev.Nanode.one'}

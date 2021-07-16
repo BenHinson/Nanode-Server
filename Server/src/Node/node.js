@@ -327,7 +327,7 @@ module.exports = {
   },
 }
 
-External_Move = async(Edit, Current, Mongo) => {
+const External_Move = async(Edit, Current, Mongo) => {
   let {user, type, section, id, changeTo, moveTo, New_Parent} = Edit;
   let DONTSET = false;
 
@@ -370,29 +370,29 @@ External_Move = async(Edit, Current, Mongo) => {
 
 // ==============
 
-Short_Contents = function(fir={}, sec={}) {
+const Short_Contents = function(fir={}, sec={}) {
   let ItemsType = fir.type || sec.type || {};
   return {...Contents_Item, ...{"name": fir.name || sec.name || "Unnamed", "mime": ItemsType.mime ||ItemsType.mime || "UNKNOWN", "size": fir.size || sec.size || 1, "color": fir.color || sec.color || '', "time": fir.time || sec.time || {"modified": {"stamp":Helper.timeNow()}} }};
 }
 
-ID_Query = function({section, query, contents, internal}, created={}) {
+const ID_Query = function({section, query, contents, internal}, created={}) {
   if (query.length) {
     query.forEach(item => { item ? created[`${section}.${item}${contents ? ".contents" : ""}`] = 1 : '' });
   }
   return created;
 }
 
-ID_Set = function(section, Query, created={}) {
+const ID_Set = function(section, Query, created={}) {
   Query.forEach(item => created[`${section}.${item}`] = '')
   return created;
 }
 
-Key_Query = function(Keys, created={}) {
+const Key_Query = function(Keys, created={}) {
   Keys.forEach(key => { created[key] = 1 });
   return created;
 }
 
-Key_Set = function(Set, created={}) {
+const Key_Set = function(Set, created={}) {
   const {Pre, Change, Move, Negative} = Set;
   for (let [key, value] of Object.entries(Change)) { 
     if (Move) {
@@ -405,7 +405,7 @@ Key_Set = function(Set, created={}) {
   return created;
 }
 
-Key_Counter = function(Node_List, wanted, counter={}) {
+const Key_Counter = function(Node_List, wanted, counter={}) {
   Array.isArray(Node_List) ? '' : Node_List = Object.keys(Node_List).map((key) => Node_List[key]);
   Node_List.forEach(node => { 
     let type = wanted == "size" ? Helper.BaseType(node.type.mime) : wanted;
@@ -416,7 +416,7 @@ Key_Counter = function(Node_List, wanted, counter={}) {
 
 ////// =============== =========== ======== === =
 
-Node_Exists = async(uID, check) => {
+const Node_Exists = async(uID, check) => {
   const {section, id} = check;
   return await Node_Coll.findOne({
     "_id": uID,
@@ -424,7 +424,7 @@ Node_Exists = async(uID, check) => {
   }).then(items => { return items ? true : false })
 }
 
-Node_Get = async(uID, fetch) => {
+const Node_Get = async(uID, fetch) => {
   return Object.keys(fetch).length == 0 
     ? ["Empty Query"] 
     : await Node_Coll.aggregate([
@@ -433,14 +433,14 @@ Node_Get = async(uID, fetch) => {
     ]).toArray();
 };
 
-Node_Set = async(uID, set) => {
+const Node_Set = async(uID, set) => {
   return Node_Coll.updateOne(
     {"_id": uID},
     set
   )
 };
 
-Node_Account_Set = async(Account_Data) => {
+const Node_Account_Set = async(Account_Data) => {
   return Node_Coll.insertOne(Account_Data)
   .then(async() => { return true; })
   .catch(err => {console.log(`Couldnt Create Node Account: ${err}`); return false; })

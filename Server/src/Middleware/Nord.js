@@ -130,18 +130,18 @@ module.exports = {
   },
 }
 
-getCookie = function(encrypted_Cookie) {
+const getCookie = function(encrypted_Cookie) {
   return encrypted_Cookie
     ? ( JSON.parse( CryptoJS.AES.decrypt(decodeURIComponent( cookie_sign.unsign( encrypted_Cookie , Keys.SECRET_KEY ) ), Keys.COOKIE_ENCRYPT_KEY).toString(CryptoJS.enc.Utf8) ) )
     : false;
 }
 
-completeCookie = function(type, cookie) {
+const completeCookie = function(type, cookie) {
   if (type == 'NORD') { return (cookie && cookie.sID && cookie.cID) ? true : false; }
   else if (type == 'SESSION') { return (cookie && cookie.toc && cookie.sID && cookie.rot) ? true : false }
   else { return false }
 }
 
-requestURL = function(Type, Connection) {
+const requestURL = function(Type, Connection) {
   return {"type": Type, "url": (Type == 'SOCKET' ? Connection.url : Connection.originalUrl)};
 }
