@@ -34,6 +34,8 @@ module.exports = {
     let Nord_Cookie = getCookie(tray.nord);
     if (!completeCookie('NORD', Nord_Cookie)) { return {"uID": false, "err": "Incomplete Nord", "req": requestURL(Type, Connection)} };
 
+    if (!Helper.validateUUID(Nord_Cookie.uID) ) { return {"uID": false, "err": "Incorrect UUID", "req": requestURL(Type, Connection)} };
+
     // @ SESSION COOKIE CHECK
     let Session_Cookie = getCookie(tray.session);
     if (completeCookie('SESSION', Session_Cookie)) {

@@ -153,7 +153,7 @@ Drive_Router.post('/create', Nord.Middle, async(req, res) => {
   const userID = req.headers.uID;
   let {path, type, parent, name, options} = req.body;
   const section = Helper.validateClient("section", req.body.section) ? req.body.section : "main";
-  if (parent == '_MAIN_') { parent = '_GENERAL_' };
+  if (parent == '_MAIN_') parent = '_GENERAL_';
 
   if (type.match(/Item|Folder|File|Span/i)) {
     const written = await Node.Create(type,
@@ -175,6 +175,8 @@ Drive_Router.post('/edit', Nord.Middle, async(req, res) => {
   const {section, path, action, id, data, to} = req.body;
   const userID = req.headers.uID;
 
+  if (!Helper.validateUUID(id)) { return Send.Message(res, 400, {'message': 'Invalid Item ID'}); }
+
   const Edit = {
     "user": userID,
     "type": action,
@@ -187,7 +189,7 @@ Drive_Router.post('/edit', Nord.Middle, async(req, res) => {
 
   const EditItemIDs = Array.isArray(id) ? id : [id];
   let writeSuccess = true;
-
+  // TRY CATCH HERE
   for (let i=0; i<EditItemIDs.length; i++) { // Iterate Through All Edited Items. If a bad write, break loop and send error.
     Edit.id = EditItemIDs[i];
     let write = await Node.Edit(Edit);

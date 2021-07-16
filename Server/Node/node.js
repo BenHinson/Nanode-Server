@@ -118,7 +118,7 @@ module.exports = {
       changeTo.name ? Mongo.$push = { [`${section}.${id}.previous`]: {$each: [changeTo.name], $slice: -5} } : '';
       Mongo.$set = Key_Set({ "Pre": [`${section}.${id}`], "Change": changeTo })
 
-      if (!current.parent.match(/home|homepage/i)) {
+      if (current.parent && !current.parent.match(/home|homepage/i)) {
         Mongo.$set[`${section}.${current.parent}.contents.${id}`] = Short_Contents(changeTo, current);
       }
     }

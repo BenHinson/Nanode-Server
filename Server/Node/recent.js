@@ -14,6 +14,7 @@ module.exports = {
 
     let currentRecentNodes = await Node.Read({user, "CUSTOM": {[`recent.${section}`]: 1}});
     currentRecentNodes = currentRecentNodes['recent'][section];
+    if (!currentRecentNodes) { return false; }
     id.filter(e => !currentRecentNodes.includes(e));  // Prevents duplicates. Trash MongoDB doesnt do this natively. $addToSet has to limit/$slice function.
 
     if (id.length) { Node.Custom_Update({"user": user, "ACTION": '$push', "KEY": `recent.${section}`, "CUSTOM": {$each: id, $slice: -8}}) }
