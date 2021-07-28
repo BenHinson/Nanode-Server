@@ -1,20 +1,20 @@
 // Module Calls
-const fs = require('fs-extra');
-const path = require('path');
+import express from 'express';
+import fs from 'fs';
+import * as Mongo from './mongo'
 
-const bodyParser = require('body-parser');
-const helmet = require('helmet')
-const csp = require(`helmet-csp`)
-const cors = require('cors');
-const featurePolicy = require("feature-policy");
-const cookie = require('cookie');
-const cookieParser = require('cookie-parser');
-const subdomain = require('express-subdomain');
-const express = require('express');
+import bodyParser from 'body-parser';
+import helmet from 'helmet';
+import csp from 'helmet-csp';
+import cors from 'cors';
+
+import featurePolicy from 'feature-policy';
+import cookie from 'cookie';
+import cookieParser from 'cookie-parser';
+import subdomain from 'express-subdomain';
+
 const app = express();
 const router = express.Router({mergeParams: true});
-
-const ejs = require('ejs');
 
 const CACHE_TIME = 86400000; // 86400000 (24 hours)
 
@@ -37,7 +37,7 @@ const Start_Server = function() {
   app.set('view-engine', 'ejs');
   app.use(helmet());
   app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
-  app.use(cookieParser(Keys.SECRET_KEY));
+  app.use(cookieParser(SECRET_KEY));
   app.use(cors(corsOptions))
   app.use(bodyParser.urlencoded({extended: true}));
   app.use(bodyParser.json({limit: '50mb'}))
@@ -49,10 +49,10 @@ const Start_Server = function() {
       fontSrc: ["'self'", 'fonts.gstatic.com', 'use.fontawesome.com'],
     }
   }));
-  app.use(function(err, req, res, next) {
-    res.status(err.status || 500);
-    res.json({ message: err.message, error: err });
-  })
+  // app.use((err:any, req:Request, res:Response) => {
+  //   res.status(err.status || 500);
+  //   res.json();
+  // })
   
   // Server Listen
   server.listen(443, () => { console.log('Running on Port', server.address().port) });
@@ -67,21 +67,22 @@ const Start_Server = function() {
   app.use(express.static('F:\\Nanode/Nanode Client', {maxAge: CACHE_TIME}));
 
   // ========== Account Login Check ==========
-  app.get('/check', require('../Middleware/Nord.js').Middle, async(req, res) => { return res.send({"loggedIn": req.headers.uID ? true : false}) })
+  app.get('/check', require('../Middleware/Nord.js').Middle, (req, res) => {
+    return res.send({"loggedIn": req.headers.uID ? true : false})
+  })
   // ========= Work-In-Progress Page =========
   // app.get('/new', function(req, res) { return res.status(200).sendFile('F:\\Nanode\\Nanode Client\\views\\new\\new.html'); })
   // ========== Error page Fallback ==========
-  app.use(function (req, res, next) { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html'); })
+  app.use((req, res) => { return res.status(404).sendFile('F:\\Nanode\\Nanode Client\\views\\Error.html') })
 
 }
 
-const Keys = require('./keys.js')
-const Mongo = require('./mongo');
+import {SECRET_KEY} from './keys.js'
 
 /////////////////////////////////////  Ctrl+Shift+C  ///////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Mongo.connectToServer(function(err, client) {
+Mongo.connectToServer((err:Error, client:any) => {
   if (err) {console.log(`ERROR: ${err}`)}
   console.log("Successful MongoDB Connection.");
   
