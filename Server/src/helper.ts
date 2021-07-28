@@ -1,5 +1,8 @@
 import parser from 'ua-parser-js'
 
+// ======================= TS ========================
+import { Request } from 'express';
+
 // =================================================== 
 
 const Base_Object = {
@@ -73,8 +76,8 @@ const truncate = (string:string='', desired:number=0): string => {  // Shorten L
   return (string.length > desired) ? string.substr(0, desired-1) : string;
 }
 
-const Device_Info = (Type:'SOCKET' | 'HTTP', Connection:Express.Request | any) => {
-  let userAgent = (Type == "SOCKET" ? parser(Connection.request.headers['user-agent']) : parser(Connection.headers['user-agent']));
+const Device_Info = (Connection:Request) => {
+  let userAgent = parser(Connection.headers['user-agent']);
   return {
     "Device_Vendor": userAgent?.device?.vendor || '',
     "Device_Model": userAgent?.device?.model || '',

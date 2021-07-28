@@ -62,7 +62,7 @@ Link_Router.use('/download/a/:id', async(req, res) => {
 })
 
 Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
-  let Account = await Nord.Check("HTTP", req, res);
+  let Account = await Nord.ValidateCookie(req, res);
   let userID = Account.uID;
   await Links.readDownloadLink(req.params.id).then(function(result) {
     if (result === false || (result.for == "SELF" && userID != result.owner)) { return Helper.ErrorPage(res); }

@@ -2,9 +2,6 @@
 interface LooseObject {
   [key: string]: any
 }
-interface Socket {
-  [key: string]: any
-}
 interface Activity extends NordAccount {
   'action'?: string
   'reason'?: string
@@ -63,7 +60,7 @@ interface NordAccount {
   'uID'?: string | boolean
   'err'?: string
   'req'?: {
-    'type': 'SOCKET'|'HTTP'
+    'type': string | 'HTTP'
     'url': string
   }
 }

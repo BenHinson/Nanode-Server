@@ -15,7 +15,7 @@ import {nanoid} from 'nanoid'
 import {v4 as uuidv4} from 'uuid';
 
 // ======================= TS ========================
-import { Response } from 'express-serve-static-core';
+import { Request, Response } from 'express';
 
 // =====================  ACTION  =====================
 
@@ -28,10 +28,10 @@ const Login = async(Email:string, Password:string, req:Request, res:Response) =>
           return res.send({ "Acc_Server": "Incorrect_Cred" })
         } else {
           Logger.CustomActivityLog({"action": 'SUCCESSFUL Login Attempt', "email": Email})
-          let Cookies = await Nord_Session("Nanode.one", doc[0].cookieID, doc[0].userID, nanoid(), new Date().getTime(), Device_Info("HTTP", req)) ///////////
+          let Cookies = await Nord_Session("Nanode.one", doc[0].cookieID, doc[0].userID, nanoid(), new Date().getTime(), Device_Info(req)) ///////////
 
-          await SetCookie('HTTP', res, 'nord', Cookies.Nord, 31536000000); // 1 Year
-          await SetCookie('HTTP', res, 'session', Cookies.Session, 86400000); // 1 Day
+          await SetCookie(res, 'nord', Cookies.Nord, 31536000000); // 1 Year
+          await SetCookie(res, 'session', Cookies.Session, 86400000); // 1 Day
 
           return res.send({ "Acc_Server": "_Login" })
         }
