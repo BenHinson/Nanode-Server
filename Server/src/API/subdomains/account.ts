@@ -1,14 +1,13 @@
-const express = require('express');
+import express from 'express'
 const Account_Router = express.Router();
 
-const validator = require('validator');
+import validator from 'validator';
 
-const Nord = require('../../Middleware/Nord.js');
-const Account = require('../../Account/account.js');
-const Logger = require('../../Middleware/Logger.js')
+import * as Nord from '../../Middleware/Nord';
+import Account from '../../Account/account';
+import Logger from '../../Middleware/Logger';
 
-
-const bodyParser = require('body-parser');
+import bodyParser from 'body-parser';
 
 Account_Router.use(bodyParser.urlencoded({extended: true}));
 Account_Router.use(bodyParser.json({limit: '50mb'}))

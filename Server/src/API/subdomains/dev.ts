@@ -1,10 +1,11 @@
-const express = require('express');
+import express from 'express'
 const Dev_Router = express.Router();
-const csp = require(`helmet-csp`)
-const crypto = require('crypto');
+
+import csp from 'helmet-csp'
+import crypto from 'crypto';
 const corsOptions = {origin: 'https://dev.Nanode.one'}
 
-const Logger = require('../../Middleware/Logger.js')
+import Logger from '../../Middleware/Logger';
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
@@ -22,7 +23,7 @@ Dev_Router.use(csp({
 
 Dev_Router.get('/:page?', function(req, res) {
   let page = req.params.page;
-  Logger.ActivityLog(req, {page: page || ''})
+  Logger.ActivityLog(req, {'page': page || ''})
   // if (page == 'design') {
   //   res.sendFile('F:\\Nanode\\Nanode Client\\views\\design.html')
   // } else {

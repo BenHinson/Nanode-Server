@@ -66,11 +66,16 @@ const Create = async(Email:string, Password:string, req:Request, res:Response) =
 }
 
 const Write = async(Params:Write_Params) => {
-  const {user, type, parentKey, childKey, data} = Params;
+  const {user, type, multi, parentKey, childKey, data} = Params;
   let MongoEdit:MongoEdit = {};
 
   if (type == "Increment") {  MongoEdit.$inc = { [`${parentKey}.${childKey}`]: data || 1 } }
   else if (type == "Set") { MongoEdit.$set = { [`${parentKey}.${childKey ? childKey : ''}`]: data } }
+  else if (type == 'Unset') { MongoEdit.$unset = {};
+    Array.isArray(childKey)
+      ? childKey.forEach(item => MongoEdit.$unset[`${parentKey}.${item ? item : ''}`] = '')
+      : MongoEdit.$unset[`${parentKey}.${childKey ? childKey : ''}`] = '';
+  }
   else {return false;}
 
   return Account_Coll.updateOne( {"userID": user}, MongoEdit )

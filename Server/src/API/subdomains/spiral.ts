@@ -1,18 +1,19 @@
-const express = require('express');
+import express from 'express'
 const Spiral_Router = express.Router();
-const csp = require(`helmet-csp`)
+
+import csp from 'helmet-csp'
 const corsOptions = {origin: 'https://spiral.Nanode.one'}
 
-const Logger = require('../../Middleware/Logger.js')
-
-Spiral_Router.get('/', function(req, res) {
-  Logger.ActivityLog(req)
-  res.sendFile('F:\\Nanode\\Nanode Client\\views\\spiral.html');
-});
+import Logger from '../../Middleware/Logger'
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
 //////////////////////////////////////////////////////////////////////
+Spiral_Router.get('/', function(req, res) {
+  Logger.ActivityLog(req, {'page': 'Spiral'})
+  res.sendFile('F:\\Nanode\\Nanode Client\\views\\spiral.html');
+});
+
 
 Spiral_Router.use(express.urlencoded({extended: false}))
 Spiral_Router.use(csp({

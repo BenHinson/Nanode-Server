@@ -35,12 +35,7 @@ const Middle = async(req:Request, res:Response, next:NextFunction) => {
   }
 }
 
-/**
- * @param  {}
- * This is a function that is called by {@link Middle}
- * @return userID data or redirects to login page.
-*/
-
+// Called via link.js  ejs validation or Middle.
 // Validates the cookies, against the spec. Returns userID or redirects to login page if not 'settings or check' urls.
 
 const ValidateCookie = async(req:Request, res:Response): Promise<NordAccount> => {
@@ -70,7 +65,10 @@ const ValidateCookie = async(req:Request, res:Response): Promise<NordAccount> =>
   // console.log(Record);
 
   let Session = Record.sessions[Nord_Cookie.sID];
-  if (!Session || Session.Locked !== false) { return cookieError("No Such Session or Locked", req); };
+  if (!Session || Session.Locked !== false) {
+    console.log(`Session: ${Nord_Cookie.sID} does not exist in Sessions. Can only happen via previous session update right?`)
+    return cookieError("No Such Session or Locked", req);
+  };
   
 
   if ( DeviceMatch(Device_Info(req), Session.Dev_Info) ) {
@@ -114,6 +112,7 @@ export { ValidateCookie, Middle, SetCookie, Nord_Create, Nord_Session}
 // =================================================== 
 
 const Nord_Update = async(domain:string, Obj_id:string, cID:string, uID:string, cur_sID:string, new_sID:string, new_session:NewSession) => {
+  console.log(`Session Updated from: ${cur_sID} to ${new_sID}`)
   return Nord_DB.collection(domain).updateOne({_id: Obj_id}, {
     $set: {["sessions."+new_sID]: new_session},
     $unset: {["sessions."+cur_sID]: 1}
