@@ -4,7 +4,8 @@ import {getColl} from '../Admin/mongo';
 const Node_Coll = getColl('node');
 
 import Node from './node';
-import {validateUUID} from '../helper';
+
+import Nelp from '../tools';
 
 // =====================================================================
 
@@ -81,7 +82,7 @@ const Options = (Search:LooseObject, input:any, inputTwo:any, params:SearchParam
   if (forFiles || (!forFiles && !forFolders)) { Search.forFiles = true }
   if (onlyShared) { Search.onlyShared = true }
   
-  if (withinParent && validateUUID(withinParent)) { Search.withinParent = withinParent }    // withinParent given as withinParent. input && inputTwo saved for the search values. Parent can be a span ID
+  if (withinParent && Nelp.validateUUID(withinParent)) { Search.withinParent = withinParent }    // withinParent given as withinParent. input && inputTwo saved for the search values. Parent can be a span ID
   
   if (description) { Search.description = true }    // Also checks descriptions and preNames if there are.
   if (prevNames) { Search.prevNames = true }

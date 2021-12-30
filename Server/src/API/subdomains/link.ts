@@ -8,9 +8,9 @@ const corsOptions = {origin: 'https://link.Nanode.one'}
 
 import crypto from 'crypto'
 
-import {ErrorPage, convertSize} from '../../helper';
+import Nelp from '../../tools';
 import ReadWrite from '../../Nano/ReadWrite';
-import * as Nord from '../../Middleware/Nord';
+import Nauth from '../../Middleware/Nauth';
 import Links from '../../Account/links';
 
 
@@ -29,9 +29,9 @@ Link_Router.use((req, res, next) => {res.locals.nonce = crypto.randomBytes(16).t
 Link_Router.use(express.urlencoded({extended: false}))
 Link_Router.use(csp({
   directives: {
-    connectSrc: ["'self'", 'https://Nanode.one/socket.io/','wss://Nanode.one/socket.io/'],
+    connectSrc: ["'self'", 'nanode.one', 'https://Nanode.one/socket.io/','wss://Nanode.one/socket.io/'],
     styleSrc: ["'self'", 'use.fontawesome.com', 'fonts.googleapis.com', 'nanode.one', "'unsafe-inline'"],
-    fontSrc: ["'self'", 'fonts.gstatic.com', 'use.fontawesome.com'],
+    fontSrc: ["'self'", 'nanode.one', 'fonts.gstatic.com', 'use.fontawesome.com'],
   }
 }));
 
@@ -40,42 +40,42 @@ Link_Router.use('/download/preview/:id', cors(corsOptions), async(req, res) => {
   if (typeof item != 'undefined' && Number.isInteger(item)) {
     await Links.readDownloadLink(req.params.id).then((result:DownloadLinkTemplate) => {
       if (result.for == "SHARE") {
-        ReadWrite.Mass(res, result.preview[item].File, result.preview[item].Mime);
+        ReadWrite.Mass(res, {'fileID':result.preview[item].File, 'mimetype':result.preview[item].Mime});
       }
     })
     return;
   }
-  return ErrorPage(res);
+  return Nelp.errorPage(res);
 })
 
 Link_Router.use('/download/a/:id', async(req, res) => {
   await Links.readDownloadLink(req.params.id).then(function(result:DownloadLinkTemplate) {
-    if (result.for == "SELF") { return ErrorPage(res); }
+    if (result.for == "SELF") { return Nelp.errorPage(res); }
     else if (result.for == "SHARE") {
       return res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", result.title+".zip", function(err) {
-        if (err) {return ErrorPage(res);}
+        if (err) {return Nelp.errorPage(res);}
         Links.incrementDownloadCount(result.url);
       })
     }
-  }).catch((err:Error) => { console.log(`Failed to Download at id: ${req.params.id} with Error: ${err}`); return ErrorPage(res); })
+  }).catch((err:Error) => { console.log(`Failed to Download at id: ${req.params.id} with Error: ${err}`); return Nelp.errorPage(res); })
 })
 
-Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
-  let userID = (await Nord.ValidateCookie(req, res)).uID;
+Link_Router.use('/download/:id', cors(corsOptions), Nauth.Middle, async(req, res) => {
+  let userID = req.headers.uID as User;
 
   await Links.readDownloadLink(req.params.id).then((result: DownloadLinkTemplate|false) => {
-    if (result === false || (result.for == "SELF" && userID != result.owner)) { return ErrorPage(res); }
+    if (result === false || (result.for == "SELF" && userID != result.owner)) { return Nelp.errorPage(res); }
     if (result.for == "SELF" && userID == result.owner) {
       res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", result.title+".zip", (err) => {
-        if (err) {return ErrorPage(res);}
+        if (err) {return Nelp.errorPage(res);}
       })
     } else {
-      res.render('F:\\Nanode\\Nanode Client\\views\\download.ejs', {
+      res.render('F:\\Nanode\\Nanode Client\\views\\misc\\download.ejs', {
         ejs_url: "https://link.nanode.one/download/a/"+result.url,
         ejs_item: result.url,
         ejs_title: result.title+".zip",
         ejs_name: result.title,
-        ejs_size: convertSize(result.size),
+        ejs_size: Nelp.convertSize(result.size),
         ejs_items: result.contents?.length + (result.contents?.length || 2 > 1 ? " items" : " item"),
         ejs_count: result.count || 0,
         ejs_contents: result.contents,
@@ -84,19 +84,19 @@ Link_Router.use('/download/:id', cors(corsOptions), async(req, res) => {
         ejs_scanned: result.scanned
       })
     }
-  }).catch((err) => { console.log(err); return ErrorPage(res); })
+  }).catch((err) => { console.log(err); return Nelp.errorPage(res); })
 })
 
 Link_Router.use('/:link', cors(corsOptions), async(req, res) => {
   let fileName_mimeType = await Links.readShareLink(req.params.link).then((result:LinkTemplate|false) => {
-    if (result === false) { return ErrorPage(res); }
-    else if (result.mime != "FOLDER") { ReadWrite.Mass(res, result.file, result.mime); }
+    if (result === false) { return Nelp.errorPage(res); }
+    else if (result.mime != "FOLDER") { ReadWrite.Mass(res, {'fileID':result.file, 'mimetype':result.mime}); }
     else if (result.mime == "FOLDER") {
       console.log(result)
       console.log("Folder Support Soon");
-      return ErrorPage(res);
+      return Nelp.errorPage(res);
     }
-  }).catch((err) => { console.log(err); return ErrorPage(res); })
+  }).catch((err) => { console.log(err); return Nelp.errorPage(res); })
 })
 
 Link_Router.get('/', async(req, res) => { res.redirect('https://Nanode.one'); })

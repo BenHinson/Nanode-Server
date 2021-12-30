@@ -2,8 +2,9 @@ import {getColl} from '../Admin/mongo';
 const Account_Coll = getColl('account');
 
 import Node from '../Node/node.js'
-import {SetCookie, Nord_Create, Nord_Session} from '../Middleware/Nord.js'
-import {Device_Info, Settings_Template} from '../helper.js'
+import Nauth from '../Middleware/Nauth.js'
+import Nelp from '../tools.js'
+import {Settings_Template} from '../templates'
 import Logger from '../Middleware/Logger.js'
 
 import crypto from 'crypto'
@@ -28,10 +29,8 @@ const Login = async(Email:string, Password:string, req:Request, res:Response) =>
           return res.send({ "Acc_Server": "Incorrect_Cred" })
         } else {
           Logger.CustomActivityLog({"action": 'SUCCESSFUL Login Attempt', "email": Email})
-          let Cookies = await Nord_Session("Nanode.one", doc[0].cookieID, doc[0].userID, nanoid(), new Date().getTime(), Device_Info(req)) ///////////
-
-          await SetCookie(res, 'nord', Cookies.Nord, 31536000000); // 1 Year
-          await SetCookie(res, 'session', Cookies.Session, 86400000); // 1 Day
+          
+          await Nauth._Session(res, "nanode.one", doc[0].cookieID, doc[0].userID, nanoid(), new Date().getTime(), Nelp.deviceInfo(req));
 
           return res.send({ "Acc_Server": "_Login" })
         }
@@ -56,9 +55,9 @@ const Create = async(Email:string, Password:string, req:Request, res:Response) =
   let CookieID = nanoid();
   let Username = Email.split('@')[0].replace(/[^a-zA-Z +]/g,' ').replace(/  +/g, ' ');
 
-  return Account_Coll.insertOne({"email": Email.toLowerCase(), "password": Hashed_Password, "passwordLength": Password.length, "userID": uID, "photo": "", "username": Username, "cookieID": CookieID, "key": crypto.randomBytes(32), "settings": Settings_Template, "plan": (10 * 1024 * 1024 * 1024) })
+  return Account_Coll.insertOne({"email": Email.toLowerCase(), "password": Hashed_Password, "passwordLength": Password.length, "userID": uID, "photo": "", "username": Username, "cookieID": CookieID, "key": crypto.randomBytes(32), "settings": Settings_Template, "plan": {'max': (10 * 1024 * 1024 * 1024), 'used': 0} })
     .then(async() => {
-      await Nord_Create("Nanode.one", CookieID, uID);
+      await Nauth._Create("nanode.one", CookieID, uID);
       await Node.Account_Setup(uID);
       return res.send({ "Acc_Server": "_Registered" })
     })
@@ -86,10 +85,10 @@ const Write = async(Params:Write_Params) => {
 // =====================  READ  =====================
 
 const Get = async(uID:string, query:LooseObject) => {
-  let Project:LooseObject = {};
+  let Project:LooseObject = {_id: 0};
   ["password", "cookieID", "key"].forEach(Key => delete query[Key]);
   query.forEach((item:string) => { Project[item] = 1; });
-
+  
   return await Account_Coll.aggregate([
     { $match: { 'userID': uID } },
     { $project: Project }

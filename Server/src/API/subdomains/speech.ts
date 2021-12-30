@@ -8,7 +8,7 @@ const corsOptions = {origin: 'https://speech.Nanode.one'}
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
 //////////////////////////////////////////////////////////////////////
 
-Speech_Router.get('/', function(req, res) { res.sendFile('F:\\Nanode\\Nanode Client\\views\\speech.html') });
+Speech_Router.get('/', function(req, res) { res.sendFile('F:\\Nanode\\Nanode Client\\views\\misc\\speech.html') });
 
 
 Speech_Router.use(express.urlencoded({extended: false}))

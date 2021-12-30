@@ -2,21 +2,36 @@ import fse from 'fs-extra';
 import sharp from 'sharp';
 import JSZip from 'jszip';
 import mime from 'mime'
+
 import { nanoid } from 'nanoid';
+import {v1 as uuidv1} from 'uuid';
 
 import Node from '../Node/node';
 import Links from '../Account/links';
 import Logger from '../Middleware/Logger';
+import { WriteThumbnail } from './ReadWrite';
 
 // ======================= TS ========================
 import { Response } from 'express';
 
 //////////////////////////////////////////////////////////////////////
 
-const Resize = async(res:Response, data:Buffer, width:number|undefined=undefined, height:number|undefined=undefined) => {
+const Resize = async(res:Response, data:Buffer, nodeData:LooseObject) => {
+  // We can presume: the item is an IMAGE. We want to RESIZE it. There is NO PREVIEW.
+  const width = nodeData.resize.width, height = nodeData.resize.height;
+  
   sharp(data)
-    .resize({fit: sharp.fit.contain, width, height})
-    .toBuffer((err, data:Buffer, info) => { res.end(data); })
+  .resize({fit: sharp.fit.contain, width, height})
+  .toBuffer(async(err, data:Buffer, info) => {
+      if (width === 120 && height === 90) {
+        // Write thumbnail to the drive and then add it to the files node data.
+        const thumbnailID = uuidv1();
+        if (await WriteThumbnail(thumbnailID, data)) {
+          Node.Edit({'user':nodeData.userID, 'type': 'DATA', 'section':nodeData.section, 'id': nodeData.nodeID, 'changeTo': {"contents":{'thumbnail': thumbnailID}}, 'bypass': true, 'readCurrent': false})
+        } else {console.log('Failed to write thumbnail?');}
+      }
+      res.end(data);
+    })
 }
 
 const ZipFile = async(res:Response, userID:string, params:ZipParams) => {
@@ -66,6 +81,5 @@ const ZipFile = async(res:Response, userID:string, params:ZipParams) => {
       .catch(err => {console.log('Couldn\'t find file to Zip: '+Node.contents.file); return 'Failed To Read'});
   }
 }
-
 
 export default { Resize, ZipFile }

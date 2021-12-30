@@ -1,8 +1,5 @@
 // ------ Recent Controller ------ 06/06/2021
 
-import {getColl} from '../Admin/mongo';
-const Node_Coll = getColl('node');
-
 import Node from './node';
 
 // =====================================================================
@@ -17,7 +14,9 @@ const Push = async(DATA:{userID:User, section:Sections, id:string|string[]}) => 
   
   id.filter(e => !currentRecentNodes['recent'][section].includes(e));  // Prevents duplicates. Trash MongoDB doesn't do this natively. $addToSet has to limit/$slice function.
 
-  if (id.length) { Node.Custom_Update({"user": userID, "action": '$push', "key": `recent.${section}`, "CUSTOM": {$each: id, $slice: -8}}) }
+  if (id.length) {
+    Node.Custom_Update({"user": userID, "action": '$push', "key": `recent.${section}`, "CUSTOM": {$each: id, $slice: -8}})
+  }
 
   // Currently Works with: /storage/:content API  AND  /edit API.
   // Upload / Write has its own built in Pusher for FILES ONLY.

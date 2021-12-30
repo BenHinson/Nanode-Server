@@ -8,7 +8,7 @@ type NodeID = string
 interface LooseObject {
   [key: string]: any
 }
-interface Activity extends NordAccount {
+interface Activity extends NauthAccount {
   'action'?: string
   'reason'?: string
   'email'?: string
@@ -20,7 +20,7 @@ interface Activity extends NordAccount {
 // mongo.ts
 interface MDB_Databases {
   'nanode'?: any
-  'nord'?: any
+  'Nauth'?: any
   'node'?: any
 }
 interface MDB_Collections {
@@ -52,7 +52,7 @@ interface LinkData {
   'mime': string
 }
 
-// nord.ts
+// Nauth.ts
 interface Cookie {
   'uID': string
   'sID': string
@@ -62,17 +62,17 @@ interface Cookie {
   'rot': string
 }
 interface NewSession {
-  'Added'?: number
-  'Dev_Added': string
-  'Dev_Info': Device
-  'Locked': boolean
+  'added': number
+  'dev_added': string
+  'dev_info': Device
+  'locked': boolean
 }
-interface NordAccount {
+interface NauthAccount {
   'uID'?: string | boolean
   'err'?: string
   'req'?: {
-    'type': string | 'HTTP'
-    'url': string
+    'type'?: string | 'HTTP'
+    'url'?: string
   }
 }
 interface Device {
@@ -82,7 +82,7 @@ interface Device {
   "OS_Name": string
   "OS_Version": string | number
   "Browser_Name": string
-  "Brower_Major": string
+  "Browser_Major": string
   "CPU": string
 }
 
@@ -249,6 +249,7 @@ interface Node_Edit {
   moveTo?: Sections | 'homepage' | '_GENERAL_' | 'RESTORE'
   New_Parent?: any
   readCurrent?: boolean
+  bypass?: boolean
   DONTSET?: boolean
 }
 interface Node_Read {
@@ -281,8 +282,8 @@ interface SecurityCheck {
 }
 interface SecurityValue {
   security: {
-    'pass'?: string | undefined
-    'pin'?: string | undefined
+    'pass'?: string
+    'pin'?: string
   }
 }
 
@@ -340,6 +341,15 @@ interface UploadReturn {
   'file_oID'?: string,
   'file_type'?: any | undefined // core.FileTypeResult
   'chunkWrite'?: 'Success'
+}
+interface ReadData {
+  userID?:string,
+  nodeID?:string,
+  section?: Sections,
+  fileID?:string,
+  mimetype:string,
+  thumbnail?:string
+  resize?:false|{width:number|undefined,height:number|undefined}
 }
 
 // Upload

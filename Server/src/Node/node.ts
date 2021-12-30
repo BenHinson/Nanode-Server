@@ -5,7 +5,9 @@
 import {getColl} from '../Admin/mongo'
 const Node_Coll = getColl("node");
 
-import {timeNow, BaseType, truncate, validateClient, Node_Account, Node_Item, Short_Node} from '../helper';
+import Nelp from '../tools'
+import {Node_Account, Node_Item, Short_Node} from '../templates';
+
 import { removeShareLink } from '../Account/links';
 import Account from '../Account/account';
 
@@ -13,7 +15,7 @@ const UploadDrive = 'F';
 
 import crypto from 'crypto';
 import {v1 as uuidv1} from 'uuid';
-import {v3 as uuidv3} from 'uuid';
+import uuidv3 from 'uuid/v3';
 
 // =====================  NANO  =====================
 
@@ -25,14 +27,14 @@ const Write = async(Set:Node_Write, Mongo:MongoObject={}):Promise<number|0> => {
       ? Mongo.$set = { [`${section}.${data.id}`]: {"name": data.name, "contents": {}} }
       : Mongo.$set = { [`${section}.${data.id}`]: {...Node_Item, ...data} }
     Mongo.$push = { [`home.${section}`]: data.id }
-    Mongo.$inc = { [`size.total.${type == "Span" ? "SPAN" : BaseType(data.type.mime)}`] : data.size || 1 }
+    Mongo.$inc = { [`size.total.${type == "Span" ? "SPAN" : Nelp.baseMimeType(data.type.mime)}`] : data.size || 1 }
   } else if (type.match(/Item|Folder|File/i)) { // Write File OR Folder to Section
     Mongo.$set = {
       [`${section}.${data.id}`] : {...Node_Item, ...data},
       [`${section}.${data.parent}.contents.${data.id}`]: Short_Contents(data),
     }
     if (type !== 'Folder') { Mongo.$push = { [`recent.${section}`]: {$each: [data.id], $slice: -8} } }
-    Mongo.$inc = { [`size.total.${BaseType(data.type.mime)}`]: data.size || 1 }
+    Mongo.$inc = { [`size.total.${Nelp.baseMimeType(data.type.mime)}`]: data.size || 1 }
   } else {return 0;}
   
   // return;
@@ -41,11 +43,13 @@ const Write = async(Set:Node_Write, Mongo:MongoObject={}):Promise<number|0> => {
 }
 
 const Edit = async(Edit:Node_Edit, Mongo:MongoObject={}) => {
-  const {user, type, section, id, changeTo={}, readCurrent=true, subSection} = Edit;
+  const {user, type, section, id, changeTo={}, readCurrent=true, subSection, bypass=false} = Edit;
   let {moveTo} = Edit;
 
-  changeTo.time = {"modified": {"stamp": timeNow(), "who": user}};
-  ["id", "contents", "size", "security", "type"].forEach(Key => delete changeTo[Key]);
+  if (bypass === false) {
+    changeTo.time = {"modified": {"stamp": Nelp.timeNowString(), "who": user}};
+    ["id", "contents", "size", "security", "type"].forEach(Key => delete changeTo[Key]); // ! Security will cause a problem here if we want to change an item password.
+  }
   
   let current;
   if (readCurrent) {current = await Read({user, "type": "ID", section, "ids": [id]}); current = current[id];}
@@ -55,7 +59,7 @@ const Edit = async(Edit:Node_Edit, Mongo:MongoObject={}) => {
     changeTo.name ? Mongo.$push = { [`${section}.${id}.previous`]: {$each: [changeTo.name], $slice: -5} } : '';
     Mongo.$set = Key_Set({ "Pre": [`${section}.${id}`], "Change": changeTo })
 
-    if (current.parent && !current.parent.match(/home|homepage/i)) {
+    if (readCurrent && current.parent && !current.parent.match(/home|homepage/i)) {
       Mongo.$set[`${section}.${current.parent}.contents.${id}`] = Short_Contents(changeTo, current);
     }
   }
@@ -141,7 +145,7 @@ const Read = async(Query:Node_Read, Project:MongoObject={}) => {
   const {user, type, section, subSection='', ids=[], contents, keys, internal} = Query;
 
   if (type == "ID") {    // Returns either long-node of specified or its contents
-    if (ids[0].match(/home|homepage/i)) {
+    if (ids[0]?.toString()?.match(/home|homepage/i)) {
       let Spans = await Node_Get(user, {[`home.${section}`]: 1});
       let ProjectQuery = (Spans[0]['home'][section][subSection] || Spans[0]['home'][section])
       Project = ID_Query({section, "query": ProjectQuery});
@@ -217,16 +221,16 @@ const Create = async(Type:NodeTypes, Params:any, Data:any):Promise<number|0> => 
   
   let node:Node|SpanNode = {
     "id": oID || uuidv1(),
-    "name": truncate(name, 128)
+    "name": Nelp.truncate(name, 128)
   };
   
   if (Type != 'Span') { // @ts-ignore   // cba working this out... just.. cba
     node = {...node, ...{
-      "parent": truncate(parent, 128),
+      "parent": Nelp.truncate(parent, 128),
       "size": size ?? 1,
       "time": {
         "created": {
-          "stamp": timeNow(),
+          "stamp": Nelp.timeNowString(),
           "who": userID
         }
       },
@@ -239,11 +243,11 @@ const Create = async(Type:NodeTypes, Params:any, Data:any):Promise<number|0> => 
   if (options) {
     node = {...node, ...{
       "security": {
-        "pass": truncate(options.pass, 256) || '', 
-        "pin": truncate(options.pin, 256) || ''
+        "pass": Nelp.truncate(options.pass, 256) || '', 
+        "pin": Nelp.truncate(options.pin, 256) || ''
       },
       "color": options.color || '',
-      "description": truncate(options.description, 512) || '',
+      "description": Nelp.truncate(options.description, 512) || '',
     }}
   }
   
@@ -257,8 +261,8 @@ const Create = async(Type:NodeTypes, Params:any, Data:any):Promise<number|0> => 
   return await Write({
     "user": userID,
     "type": Type,
-    "section": validateClient("section", section) ? section : 'main',
-    "parent": truncate(parent, 128),
+    "section": Nelp.validateClient("section", section) ? section : 'main',
+    "parent": Nelp.truncate(parent, 128) || '_GENERAL_',
     "data": node
   });
 }
@@ -289,7 +293,7 @@ const Account_Setup = async(userID:string) => {
             },
             "time": {
               "created": {
-                "stamp": timeNow(),
+                "stamp": Nelp.timeNowString(),
                 "who": userID
               }
             },
@@ -331,7 +335,7 @@ const External_Move = async(Edit:Node_Edit, Current:Node, Mongo:MongoObject={}):
       CombinedNodes[ParentNodeID]['BIN_DATA'] = { // Set Bin Data for Recovery
         "section": section,
         "parent": Current.parent,
-        "deleted": {"stamp": timeNow(), "who": user}
+        "deleted": {"stamp": Nelp.timeNowString(), "who": user}
       }
       
       let Total_Tree_Size = Key_Counter( CombinedNodes , "size");
@@ -376,7 +380,7 @@ const Short_Contents = function(fir:ShortNode={}, sec:ShortNode={}):ShortNode|{}
       "mime": fir?.type?.mime || sec?.type?.mime || 'UNKNOWN',
       "size": fir.size || sec.size || 1,
       "color": fir.color || sec.color || '',
-      "time": fir.time || sec.time || {"modified": {"stamp":timeNow()}} 
+      "time": fir.time || sec.time || {"modified": {"stamp":Nelp.timeNowString()}} 
     }
   };
 }
@@ -413,7 +417,7 @@ const Key_Set = function(Set:Key_Set, created:LooseObject={}) {
 
 const Key_Counter = function(Node_List:{[key:string]:Node}, wanted:'size', counter:LooseObject={}):Total_Tree_Size {
   for (const [key, node] of Object.entries(Node_List)) {
-    let type = wanted == "size" ? BaseType(node.type.mime) : wanted;
+    let type = wanted == "size" ? Nelp.baseMimeType(node.type.mime) : wanted;
     isNaN(counter?.[type]) ? counter[type] = ~~(node[wanted]) : counter[type] += ~~(node[wanted])
   }
   return counter;

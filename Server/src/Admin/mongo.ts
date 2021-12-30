@@ -8,7 +8,7 @@ import {MongoClient} from 'mongodb';
 
 const Nanode_URL:string = "mongodb://localhost:27017/Nanode";
 const Node_URL:string = "mongodb://localhost:27017/Node";
-const Nord_URL:string = "mongodb://localhost:27017/Nord";
+const Nauth_URL:string = "mongodb://localhost:27017/Nauth";
 
 const Collections: MDB_Collections = {};
 const Databases: MDB_Databases = {}
@@ -26,10 +26,11 @@ export const connectToServer = async(callback: any) => {
     Collections["download"] = Databases["nanode"].collection('Downloads');
     // Collections["nano"] = Databases["nanode"].collection('Nano');
   });
-  MongoClient.connect( Nord_URL, {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
-    console.log("Nord MongoDB Connected...");
+  
+  MongoClient.connect( Nauth_URL, {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
+    console.log("Nauth MongoDB Connected...");
 
-    Databases["nord"] = client.db('Nord');
+    Databases["Nauth"] = client.db('Nauth');
 
     // return callback();
   });
@@ -47,6 +48,6 @@ export const getColl = (collection: 'account'|'link'|'download'|'node') => {
   return Collections[collection];
 }
 
-export const getDB = (database: 'nanode'|'nord'|'node') => {
+export const getDB = (database: 'nanode'|'Nauth'|'node') => {
   return Databases[database];
 }

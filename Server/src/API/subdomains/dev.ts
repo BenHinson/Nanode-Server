@@ -11,7 +11,6 @@ import Logger from '../../Middleware/Logger';
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////
 //////////////////////////////////////////////////////////////////////
 
-Dev_Router.use((req, res, next) => {res.locals.nonce = crypto.randomBytes(16).toString('hex');next();});
 Dev_Router.use(express.urlencoded({extended: false}))
 Dev_Router.use(csp({
   directives: {

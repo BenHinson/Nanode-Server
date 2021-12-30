@@ -35,7 +35,7 @@ const Message = async(Connection:Response, status=200, msg:SendMessage) => {
 }
 
 const Error = async(Error:{'Message':string, 'Code':number}, Connection:Response) => {
-  return Connection.status(Error.Code || 400).send(Error.Message || 'Internal Error');
+  return Connection.status(Error.Code || 400).send({'error': Error.Message || 'Internal Error'});
 }
 
 const FormatResponse = async(Format:any, Result:PublicNode|'Empty Query', NodeData:any) => {
@@ -47,7 +47,8 @@ const FormatResponse = async(Format:any, Result:PublicNode|'Empty Query', NodeDa
         Result[id] = {
           'name': data.name,
           'size': data.size,
-          'type': data.type, // @ts-ignore // I dont understand why data.BIN_DATA.deleted does not work
+          'type': data.type,
+          // @ts-ignore // I dont understand why data.BIN_DATA.deleted does not work
           'deleted': data.BIN_DATA.deleted
         };
       }
@@ -58,7 +59,8 @@ const FormatResponse = async(Format:any, Result:PublicNode|'Empty Query', NodeDa
         let itemParent = await Node.Read({"user": NodeData.user, "type": 'SPECIFIC', 'section': data.BIN_DATA.section, "ids": [data.BIN_DATA.parent], "keys": ["name", "description"]});
 
         Result[id] = {
-          'name': data.name, // @ts-ignore // NO idea here either
+          'name': data.name,
+          // @ts-ignore // NO idea here either
           'parent': itemParent[data.BIN_DATA.parent] || 'Deleted',
           'size': fileTree?.Tree_Data.size || data.size,
           'type': data.type,

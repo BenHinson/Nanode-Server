@@ -11,7 +11,7 @@ import Logger from '../../Middleware/Logger'
 //////////////////////////////////////////////////////////////////////
 Spiral_Router.get('/', function(req, res) {
   Logger.ActivityLog(req, {'page': 'Spiral'})
-  res.sendFile('F:\\Nanode\\Nanode Client\\views\\spiral.html');
+  res.sendFile('F:\\Nanode\\Nanode Client\\views\\misc\\spiral.html');
 });
 
 

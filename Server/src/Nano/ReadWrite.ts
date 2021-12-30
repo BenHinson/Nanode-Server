@@ -1,9 +1,10 @@
 import fse from 'fs-extra'
 import {v1 as uuidv1} from 'uuid';
-import {v3 as uuidv3} from 'uuid';
+import uuidv3 from 'uuid/v3';
+
 import FileType from 'file-type';
 
-import {ErrorPage} from '../helper';
+import Nelp from '../tools';
 import Modify from './modify';
 import Node from '../Node/node';
 import Account from '../Account/account';
@@ -11,6 +12,7 @@ import Account from '../Account/account';
 
 const UploadLocation = 'F://Nanode/Files/';
 const MassDirectory = `${UploadLocation}/Mass/`;
+const ThumbnailDirectory = `${UploadLocation}/Thumbnails/`;
 const Chunk_Storage = `${UploadLocation}/Chunks/`;
 const End_Storage = `${UploadLocation}/Mass/`;
 
@@ -22,23 +24,38 @@ import { Response } from 'express';
 
 //////////////////////////////////////////////////////////////////////
 
-const Mass = function(res:Response, id:string, mimetype:string, resize?:false|{width:number|undefined,height:number|undefined}|false):Buffer|false {
-  // console.log(MassDirectory+id);
-  fse.readFile(MassDirectory+id, async(err, data) => {
+
+const Mass = function(res:Response, readData:ReadData):Buffer|false {
+  const fileName = readData.thumbnail ? readData.thumbnail : readData.fileID || uuidv3(readData.nodeID, readData.userID);
+  const fileDirectory = readData.thumbnail ? ThumbnailDirectory+fileName : MassDirectory+fileName;
+
+  fse.readFile(fileDirectory, async(err, data) => {
     if (err) {
-      console.log("File Not Found");
-      return ErrorPage(res);
+      console.log((readData.thumbnail ? 'Failed to read thumbnail: ' : 'Failed to read file: ') + fileName);
+      return Nelp.errorPage(res);
     } else {
-      res.setHeader("Content-Type", mimetype);
+      res.setHeader("Content-Type", readData.mimetype);
       res.writeHead(200);
 
-      resize
-        ? Modify.Resize(res, data, resize.width, resize.height)
+      !readData.thumbnail && readData.resize
+        ? Modify.Resize(res, data, readData)
         : res.end(data);
     }
   })
   return false;
 }
+
+const WriteThumbnail = async function(fileName:string, data:Buffer):Promise<Boolean> {
+  await fse.promises.writeFile(ThumbnailDirectory+fileName, data).then(() => {
+    // console.log('Wrote Thumbnail: '+fileName);
+    return true;
+  }).catch(err => {
+    console.log(err);
+    return false;
+  })
+  return true;
+}
+
 
 const UploadCheck = function(user:string, reset:boolean) {
   return reset ? Upload_Object_Tree[user] = [] : Upload_Object_Tree[user]
@@ -73,7 +90,7 @@ const Write_To_User_File = async function(user:string, oID:string, meta:UploadMe
   await Create_New_Item(user, oID, fID ?? meta.parent, meta);
 }
 
-export const Perm_Delete = async(userID:User, nodeData:LooseObject, callback:{(arg:Error|null):void}) => {
+const Perm_Delete = async(userID:User, nodeData:LooseObject, callback:{(arg:Error|null):void}) => {
   let count = Object.keys(nodeData).length - 1;
   for (const [key, val] of Object.entries(nodeData)) {
     fse.unlink(`${val.drive}://Nanode/Files/Mass/${val.file}`, (err) => {
@@ -83,6 +100,7 @@ export const Perm_Delete = async(userID:User, nodeData:LooseObject, callback:{(a
   }
 }
 
+export { WriteThumbnail, Perm_Delete }
 export default { Mass, UploadCheck, Upload, Write_To_User_File }
 
 
