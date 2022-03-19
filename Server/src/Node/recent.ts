@@ -5,17 +5,17 @@ import Node from './node';
 // =====================================================================
 
 
-const Push = async(DATA:{userID:User, section:Sections, id:string|string[]}) => {
-  let {userID, section, id} = DATA;
-  if (!Array.isArray(id)) { id = [id] }
+const Push = async(DATA:{userId:UserId, section:Sections, nodeId:string|string[]}) => {
+  let {userId, section, nodeId} = DATA;
+  if (!Array.isArray(nodeId)) { nodeId = [nodeId] }
 
-  let currentRecentNodes = await Node.Custom_Read({"user": userID, "query": {[`recent.${section}`]: 1}});
+  let currentRecentNodes = await Node.Custom_Read({userId, "query": {[`recent.${section}`]: 1}});
   if (!currentRecentNodes['recent'][section]) { return false; }
   
-  id.filter(e => !currentRecentNodes['recent'][section].includes(e));  // Prevents duplicates. Trash MongoDB doesn't do this natively. $addToSet has to limit/$slice function.
+  nodeId.filter(e => !currentRecentNodes['recent'][section].includes(e));  // Prevents duplicates. Trash MongoDB doesn't do this natively. $addToSet has to limit/$slice function.
 
-  if (id.length) {
-    Node.Custom_Update({"user": userID, "action": '$push', "key": `recent.${section}`, "CUSTOM": {$each: id, $slice: -8}})
+  if (nodeId.length) {
+    Node.Custom_Update({userId, "action": '$push', "key": `recent.${section}`, "CUSTOM": {$each: nodeId, $slice: -8}})
   }
 
   // Currently Works with: /storage/:content API  AND  /edit API.
@@ -23,15 +23,15 @@ const Push = async(DATA:{userID:User, section:Sections, id:string|string[]}) => 
   // Deleted files are removed from recent if they are there. May need some more testing
 }
 
-const Fetch = async(DATA:{userID:User, section:Sections}) => { // https://drive.nanode.one/activity/recent/main
-  const {userID, section} = DATA;
+const Fetch = async(DATA:{userId:UserId, section:Sections}) => { // https://drive.nanode.one/activity/recent/main
+  const {userId, section} = DATA;
 
-  let recentIDs = await Node.Custom_Read({"user": userID, "query": {[`recent.${section}`]: 1}});
+  let recentIds = await Node.Custom_Read({ userId, "query": {[`recent.${section}`]: 1}});
   let recentNodes = await Node.Read({
-    "user": userID, 
+    userId, 
     "type": "SPECIFIC", 
     "section": section, 
-    "ids": recentIDs['recent'][section], 
+    "nodeIds": recentIds['recent'][section], 
     "keys": ['name', 'size', 'type', 'parent']
   })
   return {'recent': recentNodes};

@@ -1,31 +1,31 @@
 import Node from '../Node/node'
 import Account from '../Account/account';
 
-const Upload_File_Tree:LooseObject = {}; // Holds data about uploaded files to protect against files too large or edited file sizes.
+const uploadFileTree:LooseObject = {}; // Holds data about uploaded files to protect against files too large or edited file sizes.
 
 // ===================================================
 
-const Checker = async({userID, section, oID, wanted, input}:SecurityCheck) => {
-  if (oID.match(/home|homepage/i)) { return false; }
+const Checker = async({userId, section, nodeId, wanted, input}:SecurityCheck) => {
+  if (nodeId.match(/home|homepage/i)) { return false; }
   if (!section) { console.log("Security Checker Requires a section. Must check all calls to securityChecker"); return false; }
 
-  let securityLookup = await Node.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [oID], "keys": ["security"]});
-  if (!securityLookup[oID]?.security) { return false; }
-  let NodeSecurity = securityLookup[oID].security;
+  let securityLookup = await Node.Read({userId, "type": "SPECIFIC", "section": section, "nodeIds": [nodeId], "keys": ["security"]});
+  if (!securityLookup[nodeId]?.security) { return false; }
+  let nodeSecurity = securityLookup[nodeId].security;
   
   let level = 0;
-  let Type:Array<'Password'|'Pin'> = [];
+  let type:Array<'Password'|'Pin'> = [];
   
-  if (NodeSecurity.pass) { level++; Type.push("Password") }
-  if (NodeSecurity.pin) { level++; Type.push("Pin") }
+  if (nodeSecurity.pass) { level++; type.push("Password") }
+  if (nodeSecurity.pin) { level++; type.push("Pin") }
   // if (NodeSecurity.time)
 
   if (wanted == "Amount") { return level; }
   else if (wanted == "Access") {
-    if (!input) { return Type.length >= 1 ? Type : false; }
-    Object.keys(NodeSecurity).forEach(k => (!NodeSecurity[k] && NodeSecurity[k] !== undefined) && delete NodeSecurity[k]);
+    if (!input) { return type.length >= 1 ? type : false; }
+    Object.keys(nodeSecurity).forEach(k => (!nodeSecurity[k] && nodeSecurity[k] !== undefined) && delete nodeSecurity[k]);
     Object.keys(input).forEach(k => (!input[k] && input[k] !== undefined) && delete input[k]);
-    return JSON.stringify(NodeSecurity) === JSON.stringify(input) ? true : false;
+    return JSON.stringify(nodeSecurity) === JSON.stringify(input) ? true : false;
   }
   return false;
 }
@@ -37,32 +37,32 @@ const Value = function(item:SecurityValue, secLevel = 0) { // Convert security o
   return secLevel;
 }
 
-const Upload_Limit = async(userID:User, chunkSize:number, chunkInfo:ChunkInfo, meta:UploadMeta) => {
+const Upload_Limit = async(userId:UserId, chunkSize:number, chunkInfo:ChunkInfo, meta:UploadMeta) => {
   // Create User Plan Tree
     // Get the users plan: 'max' and 'used' and save for reference.
-  if (!Upload_File_Tree[userID]) {
-    Upload_File_Tree[userID] = {};
-    const userPlan = await Account.Get(userID, ["plan"]);
-    Upload_File_Tree[userID] = {"plan": userPlan[0].plan, "files": {}}
+  if (!uploadFileTree[userId]) {
+    uploadFileTree[userId] = {};
+    const userPlan = await Account.Get(userId, ["plan"]);
+    uploadFileTree[userId] = {"plan": userPlan[0].plan, "files": {}}
   };
 
-  let uploadName = meta.name+'-'+meta.id;
+  let uploadName = meta.name+'-'+meta.nodeId;
 
   // Check if the client states size will exceed their plan
-  if (Upload_File_Tree[userID].plan.used > Upload_File_Tree[userID].plan.max) { // Checks if used > max
+  if (uploadFileTree[userId].plan.used > uploadFileTree[userId].plan.max) { // Checks if used > max
     return {"auth": false, "msg": "Limit"}
   } else { // Sets
-    Upload_File_Tree[userID].plan.used += chunkSize;
-    Upload_File_Tree[userID].files[uploadName] = Upload_File_Tree[userID].files[uploadName] + chunkSize || chunkSize;
+    uploadFileTree[userId].plan.used += chunkSize;
+    uploadFileTree[userId].files[uploadName] = uploadFileTree[userId].files[uploadName] + chunkSize || chunkSize;
   }
 
   // Last chunk of file. Remove from the Upload Tree.
-  if (chunkInfo.index >= chunkInfo.total_chunks - 1) {
-    chunkSize = Upload_File_Tree[userID].files[uploadName];
-    delete Upload_File_Tree[userID].files[uploadName];
+  if (chunkInfo.index >= chunkInfo.totalChunks - 1) {
+    chunkSize = uploadFileTree[userId].files[uploadName];
+    delete uploadFileTree[userId].files[uploadName];
   }
   
-  return {"auth": true, "size": chunkSize, "plan": Upload_File_Tree[userID].plan};
+  return {"auth": true, "size": chunkSize, "plan": uploadFileTree[userId].plan};
 }
 
 

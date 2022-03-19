@@ -25,47 +25,47 @@ const Resize = async(res:Response, data:Buffer, nodeData:LooseObject) => {
   .toBuffer(async(err, data:Buffer, info) => {
       if (width === 120 && height === 90) {
         // Write thumbnail to the drive and then add it to the files node data.
-        const thumbnailID = uuidv1();
-        if (await WriteThumbnail(thumbnailID, data)) {
-          Node.Edit({'user':nodeData.userID, 'type': 'DATA', 'section':nodeData.section, 'id': nodeData.nodeID, 'changeTo': {"contents":{'thumbnail': thumbnailID}}, 'bypass': true, 'readCurrent': false})
+        const thumbnailId = uuidv1();
+        if (await WriteThumbnail(thumbnailId, data)) {
+          Node.Edit({'userId':nodeData.userId, 'type': 'DATA', 'section':nodeData.section, 'nodeId': nodeData.nodeId, 'changeTo': {"contents":{'thumbnail': thumbnailId}}, 'bypass': true, 'readCurrent': false})
         } else {console.log('Failed to write thumbnail?');}
       }
       res.end(data);
     })
 }
 
-const ZipFile = async(res:Response, userID:string, params:ZipParams) => {
+const ZipFile = async(res:Response, userId:string, params:ZipParams) => {
   // https://youtu.be/GQlgR_69dmI?t=1983  Could help reduce time to zip and server load
-  const {For, name, items, section} = params;
+  const {forUser, name, items, section} = params;
 
   let zip = new JSZip();
   let zipData:ZipData = {"size": 0, "contents": [], "title": name || 'Nanode_Collection'};
 
   for (let i=0; i<items.length; i++) {
-    let itemsTree = await Node.Read({"user": userID, "type": "TREE", section, "ids": [items[i]], "contents": false});
+    let itemsTree = await Node.Read({userId, "type": "TREE", section, "nodeIds": [items[i]], "contents": false});
 
-    await Zip_Set( itemsTree.Parent_Node[ itemsTree.Parent_Id[0]], zip);
+    await Zip_Set( itemsTree.parentNode[ itemsTree.parentId[0]], zip);
 
-    async function Zip_Set(Node:Node, Parent:JSZip|null) {
-      if (Node.type.file) {
-        await Write_File_To_Zip(Node, Parent, zipData);
-      } else if (Parent) { // ! Added parent here to appease typescript. May add extra folders or break zipping somehow? 
-        let SubFolder = Parent.folder(Node.name || 'Folder_'+Node.id);
-        for (const [NodeID, NodeData] of Object.entries(Node.contents))  {
-          await Zip_Set( itemsTree.Child_Node[ NodeID ], SubFolder )
+    async function Zip_Set(node:Node, parent:JSZip|null) {
+      if (node.type.file) {
+        await Write_File_To_Zip(node, parent, zipData);
+      } else if (parent) { // ! Added parent here to appease typescript. May add extra folders or break zipping somehow? 
+        let subFolder = parent.folder(node.name || 'Folder_'+node.id);
+        for (const [nodeId, nodeData] of Object.entries(node.contents))  {
+          await Zip_Set( itemsTree.childNode[ nodeId ], subFolder )
         }
       }
     }
   }
 
-  const ZipLink = await Links.writeDownloadLink(nanoid(24), For, userID, zipData);
+  const zipLink = await Links.writeDownloadLink(nanoid(24), forUser, userId, zipData);
 
   zip
     .generateNodeStream({type:'nodebuffer', streamFiles:true})
-    .pipe(fse.createWriteStream("F:\\Nanode\\Files\\Downloads\\Nanode_"+ZipLink+".zip"))
+    .pipe(fse.createWriteStream("F:\\Nanode\\Files\\Downloads\\Nanode_"+zipLink+".zip"))
     .on('finish', function() {
-      Logger.CustomActivityLog({'Zipper': 'Finished Writing'});
-      return res.status(200).send({"Link": ZipLink});
+      Logger.CustomActivityLog({'zipper': 'Finished Writing'});
+      return res.status(200).send({"Link": zipLink});
     })
 
   return;

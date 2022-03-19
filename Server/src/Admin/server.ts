@@ -1,4 +1,6 @@
 // Module Calls
+import 'dotenv/config'
+
 import express from 'express';
 import fs from 'fs';
 import * as Mongo from './mongo'
@@ -15,7 +17,6 @@ import request from 'request';
 import httpProxy from 'http-proxy';
 
 import Logger from '../Middleware/Logger.js'
-import {SECRET_KEY} from './keys.js'
 
 // =========================
 
@@ -38,17 +39,17 @@ const Start_Server = (Nauth:LooseObject) => {
   const server = require('https').createServer(options, app);
 
   app.use(subdomain('playground', function(req:any,res:any,next:any) { // Placing this here, bypasses bodyParser and is able to proxy the request.
-    proxy.web(req, res, { target: {host: "192.168.0.63", port: "2053"} }, (err:Error) => {});
+    proxy.web(req, res, { target: {host: process.env.PROXY_HOST, port: process.env.PROXY_PORT} }, (err:Error) => {});
   }))
 
   // Setup Server
   app.set('view-engine', 'ejs');
   app.use(helmet());
   app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
-  app.use(cookieParser(SECRET_KEY));
+  app.use(cookieParser(process.env.SECRET_KEY!));
   app.use(cors(corsOptions))
   app.use(express.urlencoded({extended: true}));
-  app.use(express.json({limit: '50mb'}));
+  app.use(express.json({limit: process.env.DATA_CAP}));
   app.use(featurePolicy({features: {camera: ["'none'"], geolocation: ["'none'"]}}))
   app.use(csp({
     directives: {
@@ -59,7 +60,7 @@ const Start_Server = (Nauth:LooseObject) => {
   }));
 
   // Server Listen
-  server.listen(443, () => { console.log('Running on Port', server.address().port) });
+  server.listen(process.env.PORT!, () => { console.log('Running on Port', server.address().port) });
   const proxy = httpProxy.createProxyServer();
 
   // Subdomains
@@ -77,7 +78,7 @@ const Start_Server = (Nauth:LooseObject) => {
 
   // ========== Account Login Check ==========
   app.get('/check', Nauth.default.Middle, (req, res) => {
-    return res.send({"loggedIn": req.headers.uID ? true : false, 'accountDetails': (req.query?.details ? req.headers.accountDetails : null)})
+    return res.send({"loggedIn": req.headers.userId ? true : false, 'accountDetails': (req.query?.details ? req.headers.accountDetails : null)})
   })
   // ========= Data_Flow Page =========
   app.get('/data-flow', function(req, res) { Logger.CustomActivityLog({'page': 'Data Flow'}); return res.status(200).sendFile('F:\\Nanode\\Nanode Client\\views\\misc\\data-flow.html') })

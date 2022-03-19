@@ -6,48 +6,48 @@
 
 import {MongoClient} from 'mongodb';
 
-const Nanode_URL:string = "mongodb://localhost:27017/Nanode";
-const Node_URL:string = "mongodb://localhost:27017/Node";
-const Nauth_URL:string = "mongodb://localhost:27017/Nauth";
+const nanodeURL:string = process.env.NANODE_URL!;
+const nauthURL:string = process.env.NAUTH_URL!;
+const nodeURL:string = process.env.NODE_URL!;
 
-const Collections: MDB_Collections = {};
-const Databases: MDB_Databases = {}
+const collections: MDBCollections = {};
+const databases: MDBDatabases = {}
 
 // --------------------------------------------------------------------------
 
 export const connectToServer = async(callback: any) => {
-  MongoClient.connect( Nanode_URL,  {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
+  MongoClient.connect( nanodeURL,  {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
     console.log("Nanode MongoDB Connected...");
 
-    Databases["nanode"] = client.db('Nanode');
+    databases["nanode"] = client.db('Nanode');
 
-    Collections["account"] = Databases["nanode"].collection('Accounts');
-    Collections["link"] = Databases["nanode"].collection('Links');
-    Collections["download"] = Databases["nanode"].collection('Downloads');
-    // Collections["nano"] = Databases["nanode"].collection('Nano');
+    collections["account"] = databases["nanode"].collection('Accounts');
+    collections["link"] = databases["nanode"].collection('Links');
+    collections["download"] = databases["nanode"].collection('Downloads');
+    // collections["nano"] = databases["nanode"].collection('Nano');
   });
   
-  MongoClient.connect( Nauth_URL, {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
+  MongoClient.connect( nauthURL, {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
     console.log("Nauth MongoDB Connected...");
 
-    Databases["Nauth"] = client.db('Nauth');
+    databases["Nauth"] = client.db('Nauth');
 
     // return callback();
   });
 
-  MongoClient.connect( Node_URL, {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
+  MongoClient.connect( nodeURL, {useUnifiedTopology: true, useNewUrlParser: true }, (err:string, client:any) => {
     console.log("Node MongoDB Connected...");
-    Databases["node"] = client.db('Node');
-    Collections["node"] = Databases["node"].collection('Node');
+    databases["node"] = client.db('Node');
+    collections["node"] = databases["node"].collection('Node');
 
     return callback();
   })
 }
 
 export const getColl = (collection: 'account'|'link'|'download'|'node') => {
-  return Collections[collection];
+  return collections[collection];
 }
 
 export const getDB = (database: 'nanode'|'Nauth'|'node') => {
-  return Databases[database];
+  return databases[database];
 }

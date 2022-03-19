@@ -2,7 +2,7 @@ import express from 'express';
 const Speech_Router = express.Router();
 
 import csp from 'helmet-csp';
-const corsOptions = {origin: 'https://speech.Nanode.one'}
+const corsOptions = {origin: 'https://speech.nanode.one'}
 
 //////////////////////////////////////////////////////////////////////
 ///////////////////     CONNECTIONS & SERVE    ///////////////////////

@@ -3,7 +3,7 @@ const Dev_Router = express.Router();
 
 import csp from 'helmet-csp'
 import crypto from 'crypto';
-const corsOptions = {origin: 'https://dev.Nanode.one'}
+const corsOptions = {origin: 'https://dev.nanode.one'}
 
 import Logger from '../../Middleware/Logger';
 
@@ -14,7 +14,7 @@ import Logger from '../../Middleware/Logger';
 Dev_Router.use(express.urlencoded({extended: false}))
 Dev_Router.use(csp({
   directives: {
-    connectSrc: ["'self'", 'https://Nanode.one/socket.io/','wss://Nanode.one/socket.io/'],
+    connectSrc: ["'self'", 'https://nanode.one/socket.io/','wss://nanode.one/socket.io/'],
     styleSrc: ["'self'", 'use.fontawesome.com', 'fonts.googleapis.com', "'unsafe-inline'"],
     fontSrc: ["'self'", 'fonts.gstatic.com', 'use.fontawesome.com'],
   }

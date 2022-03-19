@@ -9,16 +9,16 @@ import Nelp from '../tools';
 
 // =====================================================================
 
-export const Find = async(Query:SearchQuery, Search:LooseObject={}) => {
-  const {user, input, inputTwo, params} = Query;
+export const Find = async(Query:SearchQuery, search:LooseObject={}) => {
+  const {userId, input, inputTwo, params} = Query;
   
-  Search.input = input;
-  Search.section = "main";
-  Search = Options(Search, input, inputTwo, params)
-  let From = 0; // params.
+  search.input = input;
+  search.section = "main";
+  search = Options(search, input, inputTwo, params)
+  let from = 0; // params.
 
   try {
-    return await Match(user, Search, From, 50);
+    return await Match(userId, search, from, 50);
   } catch (error) {
     console.log(error);
     return [];
@@ -26,81 +26,81 @@ export const Find = async(Query:SearchQuery, Search:LooseObject={}) => {
 }
 
 
-const Match = async(user:User, Search:LooseObject, from=0, limit=5) => {
-  let Result = [], searchEnd = null;
-  let userNodes:GroupNodes = await LoadNodes(user, Search.section, Search.withinParent); // IMPORTANT: if loading from withinParent, check if its locked first. locked would require key. hmmm.
+const Match = async(userId:UserId, search:LooseObject, from=0, limit=5) => {
+  let result = [], searchEnd = null;
+  let userNodes:GroupNodes = await LoadNodes(userId, search.section, search.withinParent); // IMPORTANT: if loading from withinParent, check if its locked first. locked would require key. hmmm.
 
   if (from !== 0) { userNodes = Trim(userNodes, from); }
 
   for (const [id, data] of Object.entries(userNodes)) {
-    if (Result.length >= limit) { searchEnd = id; break;}
+    if (result.length >= limit) { searchEnd = id; break;}
 
     // Filter out Unwanted Nodes
     if (!data.type) { continue; } // Remove Spans
-    if (!Search.forFiles && data.type.file == true) { continue; }
-    if (!Search.forFolders && data.type.file == false) { continue; }
-    if (Search.onlyShared && !data.share) { continue; }
+    if (!search.forFiles && data.type.file == true) { continue; }
+    if (!search.forFolders && data.type.file == false) { continue; }
+    if (search.onlyShared && !data.share) { continue; }
     
     // Search Remaining Nodes    
     // Search For:
-    if (Search.color && data.color == Search.color || Search.color == '*' && data.color) {
-      Result.push( SafeForWeb(userNodes[id]) ); continue;
-    } else if (Search.type && data.type.mime == Search.type) {
-      Result.push( SafeForWeb(userNodes[id]) ); continue;
-    } else if (Search.date) { // Uses modified atm, could add created / deleted later.
+    if (search.color && data.color == search.color || search.color == '*' && data.color) {
+      result.push( SafeForWeb(userNodes[id]) ); continue;
+    } else if (search.type && data.type.mime == search.type) {
+      result.push( SafeForWeb(userNodes[id]) ); continue;
+    } else if (search.date) { // Uses modified atm, could add created / deleted later.
       let modifiedDate = new Date(data.time?.modified?.stamp);
-      if (modifiedDate < new Date(Search.date.max) && modifiedDate > new Date(Search.date.min)) {
-        Result.push( SafeForWeb(userNodes[id]) ); continue;
+      if (modifiedDate < new Date(search.date.max) && modifiedDate > new Date(search.date.min)) {
+        result.push( SafeForWeb(userNodes[id]) ); continue;
       }
     }
     
-    if (Search.name && data.name.toLowerCase().includes(Search.name.toLowerCase())) { Result.push( SafeForWeb(userNodes[id]) ); continue; }
-    if (Search.color && data.color == Search.color || Search.color == '*' && data.color) { Result.push( SafeForWeb(userNodes[id]) ); continue; }
-    if (Search.description && data?.description?.toLowerCase().includes(Search.input.toLowerCase())) { Result.push( SafeForWeb(userNodes[id]) ); continue; }
-    if (Search.prevNames && data?.previous?.includes(Search.input)) { Result.push( SafeForWeb(userNodes[id]) ); continue; }
+    if (search.name && data.name.toLowerCase().includes(search.name.toLowerCase())) { result.push( SafeForWeb(userNodes[id]) ); continue; }
+    if (search.color && data.color == search.color || search.color == '*' && data.color) { result.push( SafeForWeb(userNodes[id]) ); continue; }
+    if (search.description && data?.description?.toLowerCase().includes(search.input.toLowerCase())) { result.push( SafeForWeb(userNodes[id]) ); continue; }
+    if (search.prevNames && data?.previous?.includes(search.input)) { result.push( SafeForWeb(userNodes[id]) ); continue; }
 
   }
 
-  return {"Found": Result, "Ended": searchEnd};
+  return {"Found": result, "Ended": searchEnd};
 }
 
-const Options = (Search:LooseObject, input:any, inputTwo:any, params:SearchParams) => {
+const Options = (search:LooseObject, input:any, inputTwo:any, params:SearchParams) => {
   const {color, type, date, size} = params;     // Search By
   const {forFolders, forFiles, onlyShared} = params;      // Search Only For
   const {withinParent} = params;                      // Search In
   const {description, prevNames} = params;      // Include in Search
 
-  Search.name = input;
-  Search.input = input;
+  search.name = input;
+  search.input = input;
 
-  if (color) { Search.color = input; }   // Can be true with a name input; IE: 'red' In name or as colour?  Could set input to color and use input for search
-  if (type) { Search.type = input }
-  if (date) { Search.date = { "max": input, "min": inputTwo || input }; delete Search.name}    // Search for Date between two inputs.   Cannot have Name
-  if (size) { Search.size = { "max": input, "min": inputTwo || input }; delete Search.name}    // Search For size between two inputs.   Cannot have Name
+  if (color) { search.color = input; }   // Can be true with a name input; IE: 'red' In name or as colour?  Could set input to color and use input for search
+  if (type) { search.type = input }
+  if (date) { search.date = { "max": input, "min": inputTwo || input }; delete search.name}    // Search for Date between two inputs.   Cannot have Name
+  if (size) { search.size = { "max": input, "min": inputTwo || input }; delete search.name}    // Search For size between two inputs.   Cannot have Name
 
-  if (forFolders) { Search.forFolders = true }   // Ignore anything that isn't the following if true.
-  if (forFiles || (!forFiles && !forFolders)) { Search.forFiles = true }
-  if (onlyShared) { Search.onlyShared = true }
+  if (forFolders) { search.forFolders = true }   // Ignore anything that isn't the following if true.
+  if (forFiles || (!forFiles && !forFolders)) { search.forFiles = true }
+  if (onlyShared) { search.onlyShared = true }
   
-  if (withinParent && Nelp.validateUUID(withinParent)) { Search.withinParent = withinParent }    // withinParent given as withinParent. input && inputTwo saved for the search values. Parent can be a span ID
+  if (withinParent && Nelp.validateUUID(withinParent)) { search.withinParent = withinParent }    // withinParent given as withinParent. input && inputTwo saved for the search values. Parent can be a span ID
   
-  if (description) { Search.description = true }    // Also checks descriptions and preNames if there are.
-  if (prevNames) { Search.prevNames = true }
+  if (description) { search.description = true }    // Also checks descriptions and preNames if there are.
+  if (prevNames) { search.prevNames = true }
   
-  // Search.size = { $lt: 80000, $gt: 50000 }  // parseInt(input);
-  // Search['time.modified.stamp'] = { $gt: new Date('2021-01-01') } // Doesn't quite work as stamps are saved in string form... Will return only Development folder as that is now date form
+  // search.size = { $lt: 80000, $gt: 50000 }  // parseInt(input);
+  // search['time.modified.stamp'] = { $gt: new Date('2021-01-01') } // Doesn't quite work as stamps are saved in string form... Will return only Development folder as that is now date form
 
-  return Search
+  return search
 }
 
-const LoadNodes = async(user:User, section:Sections, withinParent:string) => { // Load User Nodes from Parent or Section
+const LoadNodes = async(userId:UserId, section:Sections, withinParent:string) => { // Load User Nodes from Parent or Section
   if (withinParent && withinParent !== 'homepage') {
     // console.log("Loading Parent Tree...");
-    let treeNodes = await Node.Read({user, type: 'TREE', section, ids: [withinParent]});
-    return treeNodes.Child_Node;
+    let treeNodes = await Node.Read({userId, type: 'TREE', section, nodeIds: [withinParent]});
+    return treeNodes.childNode;
   } else {
     // console.log("Loading Whole Section...");
-    return await Node.Custom_Read({user, "query": {[`${section}`]: 1}, section});
+    return await Node.Custom_Read({userId, "query": {[`${section}`]: 1}, section});
   }
 }
 

@@ -2,7 +2,7 @@ import express from 'express'
 const Spiral_Router = express.Router();
 
 import csp from 'helmet-csp'
-const corsOptions = {origin: 'https://spiral.Nanode.one'}
+const corsOptions = {origin: 'https://spiral.nanode.one'}
 
 import Logger from '../../Middleware/Logger'
 

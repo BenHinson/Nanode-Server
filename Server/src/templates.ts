@@ -3,11 +3,11 @@ const Settings_Template = {
   "date": 0,
 }
 
-const Node_Account:Account_Base_Nodes = {
+const Node_Account:AccountBaseNodes = {
   _id: '',
   enc_key: '',
   "size": {
-    "max": (10 * 1024 * 1024 * 1024), // 10 GB
+    "max": Number(process.env.MAX_FREE_PLAN_STORAGE), // 10 GB
     "total": {},
     "bin": {}
   },

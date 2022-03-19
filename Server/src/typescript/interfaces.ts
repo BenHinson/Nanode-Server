@@ -2,8 +2,8 @@
 type Sections = 'main' | 'codex' | 'blocks' | 'block' | 'bin'
 type SubSections = string | undefined
 type NodeTypes = 'Span' | 'Item'
-type User = string
-type NodeID = string
+type UserId = string
+type NodeId = string
 
 interface LooseObject {
   [key: string]: any
@@ -12,18 +12,18 @@ interface Activity extends NauthAccount {
   'action'?: string
   'reason'?: string
   'email'?: string
-  'Zipper'?: string
+  'zipper'?: string
   'page'?: string
 }
 
 
 // mongo.ts
-interface MDB_Databases {
+interface MDBDatabases {
   'nanode'?: any
   'Nauth'?: any
   'node'?: any
 }
-interface MDB_Collections {
+interface MDBCollections {
   'account'?: any
   'link'?: any
   'download'?: any
@@ -31,10 +31,10 @@ interface MDB_Collections {
 }
 
 // accounts.ts
-interface Write_Params {
-  user?: User
-  type?: 'Increment' | 'Set' | 'Unset'
-  parentKey?: 'settings' | 'plan' | 'share_links' | 'download_links'
+interface WriteParams {
+  userId?: UserId
+  type?: 'INCREMENT' | 'SET' | 'UNSET'
+  parentKey?: 'settings' | 'plan' | 'shareLinks' | 'downloadLinks'
   childKey?: string | string[] | 'used'
   data?: any
   multi?: boolean
@@ -47,28 +47,28 @@ interface MongoEdit {
 
 // links.ts
 interface LinkData {
-  'oID': string
-  'file_name': string
+  'nodeId': string
+  'fileName': string
   'mime': string
 }
 
 // Nauth.ts
 interface Cookie {
-  'uID': string
-  'sID': string
+  'userId': string
+  'sessionId': string
   'domain': string
-  'cID': string
+  'cookieId': string
   'toc': number
   'rot': string
 }
 interface NewSession {
   'added': number
-  'dev_added': string
-  'dev_info': Device
+  'devAdded': string
+  'devInfo': Device
   'locked': boolean
 }
 interface NauthAccount {
-  'uID'?: string | boolean
+  'userId'?: UserId | boolean
   'err'?: string
   'req'?: {
     'type'?: string | 'HTTP'
@@ -76,13 +76,13 @@ interface NauthAccount {
   }
 }
 interface Device {
-  "Device_Vendor": string
-  "Device_Model": string
-  "Device_Type": string
-  "OS_Name": string
-  "OS_Version": string | number
-  "Browser_Name": string
-  "Browser_Major": string
+  "deviceVendor": string
+  "deviceModel": string
+  "deviceType": string
+  "OSName": string
+  "OSVersion": string | number
+  "browserName": string
+  "browserMajor": string
   "CPU": string
 }
 
@@ -106,7 +106,7 @@ interface DownloadLinkTemplate extends LinkTemplate {
 
 // modify.ts > ZipFile
 interface ZipParams {
-  For: 'SELF'|'SHARE'
+  forUser: 'SELF'|'SHARE'
   name: string
   items: string | string[]
   section: Sections
@@ -118,7 +118,7 @@ interface ZipData {
 }
 
 // Node.ts > NODES
-interface Account_Base_Nodes { // Account_Data. VIA: Account_Setup
+interface AccountBaseNodes { // Account_Data. VIA: Account_Setup
   _id: string
   enc_key: Buffer | string
   "size": {
@@ -198,13 +198,13 @@ interface PublicNode {
 
 
 interface TreeNodes {
-  'Tree_Data': {size: number, count: number}
-  'Parent_Id': string[]
-  'Parent_Node': {[key: string]: Node}
-  'Child_Id': string[]
-  'Child_Node': {[key: string]: Node}
+  'treeData': {size: number, count: number}
+  'parentId': string[]
+  'parentNode': {[key: string]: Node}
+  'childId': string[]
+  'childNode': {[key: string]: Node}
 }
-interface Total_Tree_Size {
+interface TotalTreeSize {
   [key:string]: number
 }
 interface GroupNodes {
@@ -216,56 +216,56 @@ interface NodeTime {
 }
 
 // Node.ts Functions
-interface ID_Query {
+interface IdQuery {
   section: Sections
   query: string[]
   contents?: boolean
 }
-interface Key_Set {
-  Pre: string[] | string
-  Change: Total_Tree_Size | number | {}
-  Move?: boolean
-  Negative?: boolean
+interface KeySet {
+  pre: string[] | string
+  change: TotalTreeSize | number | {}
+  move?: boolean
+  negative?: boolean
 }
 
 // Node.ts > WRITE EDIT READ
 
 type MongoObject  = {[key in '$pull' | '$set' | '$unset' | '$push' | '$inc' | string]: any}
 
-interface Node_Write {
-  user: string
+interface NodeWrite {
+  userId: UserId
   type: 'Span' | 'Folder' | 'Item' | 'File'
   section: Sections
   parent: string | 'home' | 'homepage'
   data: Node | SpanNode | any
 }
-interface Node_Edit {
-  user: User
+interface NodeEdit {
+  userId: UserId
   type: 'DATA' | 'MOVE' | 'BIN' | 'DELETE' | 'RESTORE'
   section: Sections
   subSection?: SubSections
-  id: string
+  nodeId: string
   changeTo?: any
   moveTo?: Sections | 'homepage' | '_GENERAL_' | 'RESTORE'
-  New_Parent?: any
+  newParent?: any
   readCurrent?: boolean
   bypass?: boolean
-  DONTSET?: boolean
+  doNotSet?: boolean
 }
-interface Node_Read {
-  user: User
+interface NodeRead {
+  userId: UserId
   type: 'ID' | 'RAW' | 'SPECIFIC' | 'TREE' | 'CUSTOM' | 'EXISTS'
   section: Sections
   subSection?: SubSections
-  ids: string[] | ['home'] | ['homepage']
+  nodeIds: string[] | ['home'] | ['homepage']
   contents?: boolean
   keys?: string[]
   internal?: boolean
 }
 
 
-interface Node_CustomUpdate {
-  user: string
+interface NodeCustomUpdate {
+  userId: UserId
   action: string
   key: string
   CUSTOM: any
@@ -274,9 +274,9 @@ interface Node_CustomUpdate {
 
 // Security.ts
 interface SecurityCheck {
-  'section': Sections
-  userID: User
-  oID: string | 'home' | 'homepage'
+  section: Sections
+  userId: UserId
+  nodeId: string | 'home' | 'homepage'
   wanted: 'Amount' | 'Access'
   input?: any
 }
@@ -290,7 +290,7 @@ interface SecurityValue {
 
 // Search.ts
 interface SearchQuery {
-  user: User
+  userId: UserId
   input: any
   inputTwo?: any
   params: SearchParams
@@ -313,7 +313,7 @@ interface SearchParams {
 
 // Send.ts
 interface ReadSendData {
-  userID: User,
+  userId: UserId,
   type: "ID" | "RAW" | "SPECIFIC" | "TREE" | "CUSTOM",
   section:Sections,
   subSection?: SubSections,
@@ -324,10 +324,10 @@ type SendMessage = string | { [key: string]: any }
 
 
 // Drive.ts
-interface POST_Upload {
+interface POSTUpload {
   message?: 'Queue_Empty' | 'Cancelled'
   meta: UploadMeta
-  chunk_info: ChunkInfo
+  chunkInfo: ChunkInfo
   file: any | Buffer
 }
 
@@ -338,15 +338,15 @@ interface UploadObjectTree {
 }
 interface UploadReturn {
   'written'?: boolean
-  'file_oID'?: string,
-  'file_type'?: any | undefined // core.FileTypeResult
+  'fileNodeId'?: string,
+  'fileType'?: any | undefined // core.FileTypeResult
   'chunkWrite'?: 'Success'
 }
 interface ReadData {
-  userID?:string,
-  nodeID?:string,
+  userId?:string,
+  nodeId?:string,
   section?: Sections,
-  fileID?:string,
+  fileId?:string,
   mimetype:string,
   thumbnail?:string
   resize?:false|{width:number|undefined,height:number|undefined}
@@ -355,23 +355,23 @@ interface ReadData {
 // Upload
 interface UploadMeta {
   section: Sections
-  id: string
+  nodeId: string
   name: string
   isFi: boolean
   type: string
   parent: string
-  relative_path: string
+  relativePath: string
   size: number
   modified: Date
 }
 interface Chunk {
-  user: User
-  id: string
+  userId: UserId
+  nodeId: string
   index: number
   total: number
-  FileArray: Buffer
+  fileArray: Buffer
 }
 interface ChunkInfo {
   index: number
-  total_chunks: number
+  totalChunks: number
 }

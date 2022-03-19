@@ -8,28 +8,28 @@ import Node from '../Node/node';
 
 // =================================================== 
 
-const writeShareLink = async(linkID:NodeID, userID:User, linkData:LinkData) => {
-  const {oID, file_name, mime} = linkData;
-  return Link_Coll.insertOne({url: linkID, owner: userID, object: oID, file: file_name, mime: mime})
+const writeShareLink = async(linkId:NodeId, userId:UserId, linkData:LinkData) => {
+  const {nodeId, fileName, mime} = linkData;
+  return Link_Coll.insertOne({url: linkId, owner: userId, object: nodeId, file: fileName, mime: mime})
   .then(() => {
     Account.Write({
-      "user": userID,
-      "type": "Set",
-      "parentKey":"share_links",
-      "childKey":linkID,
-      "data": {"file": file_name}
+      userId,
+      "type": "SET",
+      "parentKey":"shareLinks",
+      "childKey":linkId,
+      "data": {"file": fileName}
     });
-    return linkID;
+    return linkId;
   })
   .catch((err:Error) => {console.error(`Couldn't write Link ${err}`); return false; })
 }
-const readShareLink = async(linkID:NodeID) => {
-  return Link_Coll.find({url: linkID}, {$exists: true})
+const readShareLink = async(linkId:NodeId) => {
+  return Link_Coll.find({url: linkId}, {$exists: true})
     .toArray()
     .then((items:any) => { return items.length ? items[0] : false })
     .catch((err:Error) => { return false; })
 }
-export const removeShareLink = async(user:User, links:string[], removeFromNode:boolean=false) => { // key: NodeID, value: url
+export const removeShareLink = async(userId:UserId, links:string[], removeFromNode:boolean=false) => { // key: NodeID, value: url
   if (!links.length) { return }
 
   if (removeFromNode) {
@@ -37,7 +37,7 @@ export const removeShareLink = async(user:User, links:string[], removeFromNode:b
     console.log('REMOVE LINK FROM THE NODE');
   }
 
-  Account.Write({user, type:'Unset', multi:true, parentKey:'share_links', 'childKey':links});
+  Account.Write({userId, type:'UNSET', multi:true, parentKey:'shareLinks', 'childKey':links});
 
   return Link_Coll.deleteMany({
     url: {$in: links}
@@ -45,24 +45,24 @@ export const removeShareLink = async(user:User, links:string[], removeFromNode:b
 }
 
 
-const writeDownloadLink = async(linkID:string, For:'SELF'|'SHARE', userID:string, data:ZipData) => {
-  const Contents = data.contents.map((item:any) => ({"Name": item.Name, "Mime": item.Mime}))
-  return Download_Coll.insertOne({"url": linkID, "for": For.match(/SELF|SHARE/) ? For : "SELF", "owner": userID, "title": data.title, "size": data.size, "contents": Contents})
+const writeDownloadLink = async(linkId:string, forUser:'SELF'|'SHARE', userId:UserId, data:ZipData) => {
+  const contents = data.contents.map((item:any) => ({"name": item.name, "mime": item.mime}))
+  return Download_Coll.insertOne({"url": linkId, "forUser": forUser.match(/SELF|SHARE/) ? forUser : "SELF", "owner": userId, "title": data.title, "size": data.size, contents})
     .then(() => {
-      if (For == "SHARE") {
+      if (forUser == "SHARE") {
         Account.Write({ 
-          "user": userID, 
-          "type":"Set", 
-          "parentKey": "download_links", 
-          "childKey": linkID, 
-          "data": {"title": data.title, "size": data.size, "items": Contents.length} });
+          userId,
+          "type":"SET", 
+          "parentKey": "downloadLinks", 
+          "childKey": linkId, 
+          "data": {"title": data.title, "size": data.size, "items": contents.length} });
         }
-      return linkID;
+      return linkId;
     })
     .catch((err:Error) => {console.error(`Couldn't write Link ${err}`); return false; })
 }
-const readDownloadLink = async (linkID:string) => {
-  return Download_Coll.find({url: linkID}, {$exists: true})
+const readDownloadLink = async (linkId:string) => {
+  return Download_Coll.find({url: linkId}, {$exists: true})
     .toArray()
     .then((items:any[]) => { return items.length ? items[0] : false })
     .catch((err:Error) => { return false; })

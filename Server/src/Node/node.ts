@@ -11,7 +11,7 @@ import {Node_Account, Node_Item, Short_Node} from '../templates';
 import { removeShareLink } from '../Account/links';
 import Account from '../Account/account';
 
-const UploadDrive = 'F';
+const UploadDrive = process.env.UPLOAD_DRIVE;
 
 import crypto from 'crypto';
 import {v1 as uuidv1} from 'uuid';
@@ -19,208 +19,208 @@ import uuidv3 from 'uuid/v3';
 
 // =====================  NANO  =====================
 
-const Write = async(Set:Node_Write, Mongo:MongoObject={}):Promise<number|0> => {
-  const {user, type, section, parent, data} = Set;
+const Write = async(Set:NodeWrite, mongo:MongoObject={}):Promise<number|0> => {
+  const {userId, type, section, parent, data} = Set;
 
   if (parent.match(/home|homepage/i)) { // Write to Sections Home
     type == "Span"
-      ? Mongo.$set = { [`${section}.${data.id}`]: {"name": data.name, "contents": {}} }
-      : Mongo.$set = { [`${section}.${data.id}`]: {...Node_Item, ...data} }
-    Mongo.$push = { [`home.${section}`]: data.id }
-    Mongo.$inc = { [`size.total.${type == "Span" ? "SPAN" : Nelp.baseMimeType(data.type.mime)}`] : data.size || 1 }
+      ? mongo.$set = { [`${section}.${data.id}`]: {"name": data.name, "contents": {}} }
+      : mongo.$set = { [`${section}.${data.id}`]: {...Node_Item, ...data} }
+    mongo.$push = { [`home.${section}`]: data.id }
+    mongo.$inc = { [`size.total.${type == "Span" ? "SPAN" : Nelp.baseMimeType(data.type.mime)}`] : data.size || 1 }
   } else if (type.match(/Item|Folder|File/i)) { // Write File OR Folder to Section
-    Mongo.$set = {
+    mongo.$set = {
       [`${section}.${data.id}`] : {...Node_Item, ...data},
       [`${section}.${data.parent}.contents.${data.id}`]: Short_Contents(data),
     }
-    if (type !== 'Folder') { Mongo.$push = { [`recent.${section}`]: {$each: [data.id], $slice: -8} } }
-    Mongo.$inc = { [`size.total.${Nelp.baseMimeType(data.type.mime)}`]: data.size || 1 }
+    if (type !== 'Folder') { mongo.$push = { [`recent.${section}`]: {$each: [data.id], $slice: -8} } }
+    mongo.$inc = { [`size.total.${Nelp.baseMimeType(data.type.mime)}`]: data.size || 1 }
   } else {return 0;}
   
   // return;
-  let Written = await Node_Set(user, Mongo);
-  return Written ? data.size || 1 : 0;
+  let written = await Node_Set(userId, mongo);
+  return written ? data.size || 1 : 0;
 }
 
-const Edit = async(Edit:Node_Edit, Mongo:MongoObject={}) => {
-  const {user, type, section, id, changeTo={}, readCurrent=true, subSection, bypass=false} = Edit;
+const Edit = async(Edit:NodeEdit, mongo:MongoObject={}) => {
+  const {userId, type, section, nodeId, changeTo={}, readCurrent=true, subSection, bypass=false} = Edit;
   let {moveTo} = Edit;
 
   if (bypass === false) {
-    changeTo.time = {"modified": {"stamp": Nelp.timeNowString(), "who": user}};
+    changeTo.time = {"modified": {"stamp": Nelp.timeNowString(), "who": userId}};
     ["id", "contents", "size", "security", "type"].forEach(Key => delete changeTo[Key]); // ! Security will cause a problem here if we want to change an item password.
   }
   
   let current;
-  if (readCurrent) {current = await Read({user, "type": "ID", section, "ids": [id]}); current = current[id];}
+  if (readCurrent) {current = await Read({userId, "type": "ID", section, "nodeIds": [nodeId]}); current = current[nodeId];}
 
   
   if (type === 'DATA' && changeTo) {
-    changeTo.name ? Mongo.$push = { [`${section}.${id}.previous`]: {$each: [changeTo.name], $slice: -5} } : '';
-    Mongo.$set = Key_Set({ "Pre": [`${section}.${id}`], "Change": changeTo })
+    changeTo.name ? mongo.$push = { [`${section}.${nodeId}.previous`]: {$each: [changeTo.name], $slice: -5} } : '';
+    mongo.$set = Key_Set({ "pre": [`${section}.${nodeId}`], "change": changeTo })
 
     if (readCurrent && current.parent && !current.parent.match(/home|homepage/i)) {
-      Mongo.$set[`${section}.${current.parent}.contents.${id}`] = Short_Contents(changeTo, current);
+      mongo.$set[`${section}.${current.parent}.contents.${nodeId}`] = Short_Contents(changeTo, current);
     }
   }
   else if (type === 'MOVE' && moveTo) {
     if (current.parent == moveTo) { return true; }
 
-    Mongo.$set = {};
-    const External = moveTo.match(/bin|main|codex|block/); // Don't use i tag: (_MAIN_ will match 'main' if not)
+    mongo.$set = {};
+    const external = moveTo.match(/bin|main|codex|block/); // Don't use i tag: (_MAIN_ will match 'main' if not)
     if (moveTo == "homepage" && section == "main") { moveTo = "_GENERAL_" };
 
-    const New_Parent = External ? ((moveTo == "main" // @ts-ignore  // moveTo can NOT be undefined at this point
+    const newParent = external ? ((moveTo == "main" // @ts-ignore  // moveTo can NOT be undefined at this point
       ? await Node_Get(user, {[`home.${moveTo}`]: 1}).then((res) => res[0]["home"][moveTo][0])
       : "homepage" )) : moveTo;
 
     current.parent.toLowerCase() == "homepage" // Remove From Parents
-      ? Mongo.$pull = { [`home.${section}`]: id }
-      : Mongo.$unset = {[`${section}.${current.parent}.contents.${id}`]: ''}
+      ? mongo.$pull = { [`home.${section}`]: nodeId }
+      : mongo.$unset = {[`${section}.${current.parent}.contents.${nodeId}`]: ''}
 
-    New_Parent.toLowerCase() == "homepage" // Set to New Parents
-      ? Mongo.$push = { [`home.${moveTo}`]: id }
-      : Mongo.$set[ External ? `${moveTo}.${New_Parent}.contents.${id}` : `${section}.${moveTo}.contents.${id}` ] = Short_Contents(changeTo, current);
+    newParent.toLowerCase() == "homepage" // Set to New Parents
+      ? mongo.$push = { [`home.${moveTo}`]: nodeId }
+      : mongo.$set[ external ? `${moveTo}.${newParent}.contents.${nodeId}` : `${section}.${moveTo}.contents.${nodeId}` ] = Short_Contents(changeTo, current);
     
-    if (External) { // Move between sections.
-      Mongo = await External_Move({user, type, section, id, changeTo, moveTo, New_Parent}, current, Mongo);
+    if (external) { // Move between sections.
+      mongo = await External_Move({userId, type, section, nodeId, changeTo, moveTo, newParent}, current, mongo);
     } else {
-      Mongo.$set[`${section}.${id}.parent`] = moveTo;
+      mongo.$set[`${section}.${nodeId}.parent`] = moveTo;
     }
   }
   else if (type === 'RESTORE') {
     let fromSection = current?.BIN_DATA?.section || 'main';
-    let parentID = current?.BIN_DATA?.parent;
+    let parentId = current?.BIN_DATA?.parent;
 
-    let parentExists = await Read({user, 'type': 'EXISTS', section: fromSection, 'ids': [parentID]})
-    const New_Parent = parentExists ? parentID : '_GENERAL_';
+    let parentExists = await Read({userId, 'type': 'EXISTS', section: fromSection, 'nodeIds': [parentId]})
+    const newParent = parentExists ? parentId : '_GENERAL_';
 
-    Mongo = await External_Move({user, type, 'section': 'bin', id, changeTo, 'moveTo': fromSection, New_Parent}, current, Mongo);
+    mongo = await External_Move({userId, type, 'section': 'bin', nodeId, changeTo, 'moveTo': fromSection, newParent}, current, mongo);
 
-    return (await Node_Set(user, Mongo) ? parentID : '');
+    return (await Node_Set(userId, mongo) ? parentId : '');
   }
   else if (type === 'DELETE') { // Should only be called with section bin.
-    let Contents_Tree = await Read({user, 'type': 'TREE', section, 'ids': [id], 'contents': false})
-    Mongo.$unset = ID_Set(section, [...Contents_Tree.Parent_Id, ...Contents_Tree.Child_Id], Mongo.$unset);
-    Mongo.$pull = { [`home.bin.${subSection}`]: id };
+    let contentsTree = await Read({userId, 'type': 'TREE', section, 'nodeIds': [nodeId], 'contents': false})
+    mongo.$unset = ID_Set(section, [...contentsTree.parentId, ...contentsTree.childId], mongo.$unset);
+    mongo.$pull = { [`home.bin.${subSection}`]: nodeId };
 
-    const CombinedNodes = {...Contents_Tree.Parent_Node, ...Contents_Tree.Child_Node};
+    const combinedNodes = {...contentsTree.parentNode, ...contentsTree.childNode};
 
-    let Total_Tree_Size = Key_Counter( CombinedNodes, "size");
-    Mongo.$inc = Key_Set({ "Pre":'size.bin', "Change":Total_Tree_Size, "Negative":true }, Mongo.$inc);
-    Mongo.$inc = Key_Set({ "Pre":'size.total', "Change":Total_Tree_Size, "Negative":true }, Mongo.$inc);
+    let totalTreeSize = Key_Counter( combinedNodes, "size");
+    mongo.$inc = Key_Set({ "pre":'size.bin', "change":totalTreeSize, "negative":true }, mongo.$inc);
+    mongo.$inc = Key_Set({ "pre":'size.total', "change":totalTreeSize, "negative":true }, mongo.$inc);
 
-    let sizeTotal = Object.values(Total_Tree_Size).reduce((a,b) => a+b, 0);
-    Account.Write({user, type:'Increment', parentKey:'plan', 'childKey':'used', 'data': -Math.abs(sizeTotal || 0)});
+    let sizeTotal = Object.values(totalTreeSize).reduce((a,b) => a+b, 0);
+    Account.Write({userId, type:'INCREMENT', parentKey:'plan', 'childKey':'used', 'data': -Math.abs(sizeTotal || 0)});
 
-    let Files = Key_Find( CombinedNodes, ['type', 'file'], true );
-    Object.keys(Files).forEach(index => Files[index] = CombinedNodes[index].contents );
+    let files = Key_Find( combinedNodes, ['type', 'file'], true );
+    Object.keys(files).forEach(index => files[index] = combinedNodes[index].contents );
 
-    let deleted = await Node_Set(user, Mongo);
-    return deleted ? Files : false;
+    let deleted = await Node_Set(userId, mongo);
+    return deleted ? files : false;
   }
   else if (type === 'BIN') {
     if (!current.parent) { // Is Span
       if (Object.keys(current.contents).length) {
         return ['Span is not empty']
       } else {
-        Mongo.$pull = { [`home.${section}`]: id }
-        Mongo.$unset = { [`${section}.${id}`]: '' }
-        delete Mongo.$set;
+        mongo.$pull = { [`home.${section}`]: nodeId }
+        mongo.$unset = { [`${section}.${nodeId}`]: '' }
+        delete mongo.$set;
       }
     } else {
-      const New_Parent = 'homepage';
-      Mongo.$set = {};
-      Mongo.$unset = {[`${section}.${current.parent}.contents.${id}`]: ''}
-      Mongo = await External_Move({user, type, section, id, changeTo, moveTo, New_Parent}, current, Mongo);
+      const newParent = 'homepage';
+      mongo.$set = {};
+      mongo.$unset = {[`${section}.${current.parent}.contents.${nodeId}`]: ''}
+      mongo = await External_Move({userId, type, section, nodeId, changeTo, moveTo, newParent}, current, mongo);
     }
   }
   else { return; }
 
-  // console.log(Mongo); return;
-  return await Node_Set(user, Mongo);
+  // console.log(mongo); return;
+  return await Node_Set(userId, mongo);
 }
 
-const Read = async(Query:Node_Read, Project:MongoObject={}) => {
-  const {user, type, section, subSection='', ids=[], contents, keys, internal} = Query;
+const Read = async(Query:NodeRead, project:MongoObject={}) => {
+  const {userId, type, section, subSection='', nodeIds=[], contents, keys, internal} = Query;
 
   if (type == "ID") {    // Returns either long-node of specified or its contents
-    if (ids[0]?.toString()?.match(/home|homepage/i)) {
-      let Spans = await Node_Get(user, {[`home.${section}`]: 1});
-      let ProjectQuery = (Spans[0]['home'][section][subSection] || Spans[0]['home'][section])
-      Project = ID_Query({section, "query": ProjectQuery});
+    if (nodeIds[0]?.toString()?.match(/home|homepage/i)) {
+      let spans = await Node_Get(userId, {[`home.${section}`]: 1});
+      let projectQuery = (spans[0]['home'][section][subSection] || spans[0]['home'][section])
+      project = ID_Query({section, "query": projectQuery});
     } else {
-      Project = ID_Query({section, "query": ids, contents});
+      project = ID_Query({section, "query": nodeIds, contents});
     }
   }
   else if (type == "RAW") {     // Returns the long-node of items contents 
-    let ID_Contents = await Node_Get(user, ID_Query({section, "query":ids, "contents":true}));
-    let List_Of_IDs:string[] = [];
-    for (const item in ID_Contents[0][section]) {
-      List_Of_IDs = List_Of_IDs.concat(Object.keys( ID_Contents[0][section][item].contents ))
+    let idContents = await Node_Get(userId, ID_Query({section, "query":nodeIds, "contents":true}));
+    let listOfIds:string[] = [];
+    for (const item in idContents[0][section]) {
+      listOfIds = listOfIds.concat(Object.keys( idContents[0][section][item].contents ))
     }
-    Project = ID_Query({section, "query":List_Of_IDs});
+    project = ID_Query({section, "query":listOfIds});
   } 
   else if (type == "SPECIFIC") {    // Returns Specific Values from Nodes
-    // EXAMPLE => let Type = await Node.Read({"user": userID, "type": "SPECIFIC", "section": section, "ids": [WantedURL], "keys": ["type"]});
+    // EXAMPLE => let Type = await Node.Read({"user": userId, "type": "SPECIFIC", "section": section, "ids": [WantedURL], "keys": ["type"]});
 
-    ids.forEach(id => { Project[`${section}.${id}`] = Key_Query(keys as string[]) })
+    nodeIds.forEach((nodeId:string) => { project[`${section}.${nodeId}`] = Key_Query(keys as string[]) })
   }
   else if (type == "TREE") {    // Returns Array of Children IDs & Children Nodes from Object
     // https://youtu.be/GQlgR_69dmI?t=620  could this help speed up this code and reduce it maybe?
-    return await Get_Node_Children(ids[0], {"Tree_Data": {'size': 0, 'count': 0}, "Parent_Id": [], "Parent_Node": {}, "Child_Id": [], "Child_Node": {}});
+    return await Get_Node_Children(nodeIds[0], {"treeData": {'size': 0, 'count': 0}, "parentId": [], "parentNode": {}, "childId": [], "childNode": {}});
 
-    async function Get_Node_Children(id:string, Tree:TreeNodes) {
-      let Node = await Node_Get(user, ID_Query({section, "query":[id], "contents":false}));
-      Node = Node[0][section][id];
-      if (!Node) { return Tree }
-      Tree.Tree_Data.size += Node.size || 1;
-      Tree.Tree_Data.count += 1;
-      Tree.Parent_Id.length ? Tree.Child_Id.push(Node.id) : Tree.Parent_Id.push(Node.id);
-      Object.keys(Tree.Parent_Node).length === 0 ? Tree.Parent_Node[Node.id] = Node : Tree.Child_Node[Node.id] = Node;
-      if (Node.type.file === false || Node.type.file == "FOLDER") {
-        let Children_IDs = Object.keys(Node.contents);
-        for (let c=0; c<Children_IDs.length; c++) {
-          await Get_Node_Children(Children_IDs[c], Tree);
+    async function Get_Node_Children(id:string, tree:TreeNodes) {
+      let node = await Node_Get(userId, ID_Query({section, "query":[id], "contents":false}));
+      node = node[0][section][id];
+      if (!node) { return tree }
+      tree.treeData.size += node.size || 1;
+      tree.treeData.count += 1;
+      tree.parentId.length ? tree.childId.push(node.id) : tree.parentId.push(node.id);
+      Object.keys(tree.parentNode).length === 0 ? tree.parentNode[node.id] = node : tree.childNode[node.id] = node;
+      if (node.type.file === false || node.type.file == "FOLDER") {
+        let childrenIds = Object.keys(node.contents);
+        for (let c=0; c<childrenIds.length; c++) {
+          await Get_Node_Children(childrenIds[c], tree);
         }
       }
-      return Tree;
+      return tree;
     }
   }
   else if (type == 'EXISTS') {
-    return Node_Exists(user, {section, id: ids[0]});
+    return Node_Exists(userId, {section, nodeId: nodeIds[0]});
   }
-  else { return {"Error": 'Failed to Request a valid Type'}; }
+  else { return {"error": 'Failed to Request a valid Type'}; }
 
   // console.log(Project);
-  let Result = await Node_Get(user, Project);
-  if (Result[0] == "Empty Query") return Result[0];
-  return section ? Result[0][section] : Result[0];
+  let result = await Node_Get(userId, project);
+  if (result[0] == "Empty Query") return result[0];
+  return section ? result[0][section] : result[0];
 }
 
 // ==============
 
-const Custom_Read = async(Query:{user:User,query:any,section?:Sections}) => {
-  let Result = await Node_Get(Query.user, Query.query);
-  return Query.section ? Result[0][Query.section] : Result[0]
+const Custom_Read = async(query:{userId:UserId,query:any,section?:Sections}) => {
+  let result = await Node_Get(query.userId, query.query);
+  return query.section ? result[0][query.section] : result[0]
 }
 
-const Custom_Update = async(Update:Node_CustomUpdate, Mongo:MongoObject={}) => {
-  const {user, action, key, CUSTOM} = Update;
-  Mongo[action] = { [key]: CUSTOM }
-  return await Node_Set(user, Mongo);
+const Custom_Update = async(Update:NodeCustomUpdate, mongo:MongoObject={}) => {
+  const {userId, action, key, CUSTOM} = Update;
+  mongo[action] = { [key]: CUSTOM }
+  return await Node_Set(userId, mongo);
 }
 
 // ==============
 
 const Create = async(Type:NodeTypes, Params:any, Data:any):Promise<number|0> => {
-  const {userID, section, parent, oID} = Params;
+  const {userId, section, parent, nodeId} = Params;
   const {name, size, isFi, type, modified, options} = Data;
 
   // ===================================
   
   let node:Node|SpanNode = {
-    "id": oID || uuidv1(),
+    "id": nodeId || uuidv1(),
     "name": Nelp.truncate(name, 128)
   };
   
@@ -231,7 +231,7 @@ const Create = async(Type:NodeTypes, Params:any, Data:any):Promise<number|0> => 
       "time": {
         "created": {
           "stamp": Nelp.timeNowString(),
-          "who": userID
+          "who": userId
         }
       },
       "type": {
@@ -253,13 +253,13 @@ const Create = async(Type:NodeTypes, Params:any, Data:any):Promise<number|0> => 
   
   // ===================================
   // @ts-ignore node.time['modified'] could be undefined. THATS FINE MR TYPESCRIPT
-  modified ? node.time['modified'] = {"stamp": new Date(modified).toISOString(), "who": userID} : '';
-  isFi ? node['contents'] = {"drive": UploadDrive, "file": uuidv3(oID, userID)} : '';
+  modified ? node.time['modified'] = {"stamp": new Date(modified).toISOString(), "who": userId} : '';
+  isFi ? node['contents'] = {"drive": UploadDrive, "file": uuidv3(nodeId, userId)} : '';
   
   // ===================================
   
   return await Write({
-    "user": userID,
+    userId,
     "type": Type,
     "section": Nelp.validateClient("section", section) ? section : 'main',
     "parent": Nelp.truncate(parent, 128) || '_GENERAL_',
@@ -267,19 +267,19 @@ const Create = async(Type:NodeTypes, Params:any, Data:any):Promise<number|0> => 
   });
 }
 
-const Account_Setup = async(userID:string) => {
-  let check = Node_Coll.find({uID: userID}, {$exists: true}).limit(1).toArray();
+const Account_Setup = async(userId:UserId) => {
+  let check = Node_Coll.find({userId}, {$exists: true}).limit(1).toArray();
   if (check.length) {console.log("Node_Account Already Exists"); return;}
 
-  Node_Account._id = userID;
+  Node_Account._id = userId;
   Node_Account.enc_key = crypto.randomBytes(32);
 
-  let Account_Set = await Node_Account_Set(Node_Account);
+  let accountSet = await Node_Account_Set(Node_Account);
 
-  if (Account_Set) {
+  if (accountSet) {
     ["Documents", "Games", "Media", "Music", "Notes"].forEach(async(folder) => {
       await Write({
-        "user": userID,
+        userId,
         "type": "Folder",
         "section": "main",
         "parent": "_MAIN_",
@@ -294,7 +294,7 @@ const Account_Setup = async(userID:string) => {
             "time": {
               "created": {
                 "stamp": Nelp.timeNowString(),
-                "who": userID
+                "who": userId
               }
             },
         }
@@ -308,66 +308,66 @@ export default { Write, Edit, Read, Custom_Read, Custom_Update, Create, Account_
 
 // ==============
 
-const External_Move = async(Edit:Node_Edit, Current:Node, Mongo:MongoObject={}):Promise<MongoObject> => {
-  let {user, type, section, id, changeTo, moveTo, New_Parent, DONTSET=false} = Edit;
+const External_Move = async(Edit:NodeEdit, current:Node, mongo:MongoObject={}):Promise<MongoObject> => {
+  let {userId, type, section, nodeId, changeTo, moveTo, newParent, doNotSet=false} = Edit;
 
-  let Contents_Tree = await Read({"user": user, "type": "TREE", "section": section, "ids": [id]});
-  const CombinedNodes = {...Contents_Tree.Parent_Node, ...Contents_Tree.Child_Node}; // USE ONLY FOR NON CHANGING DATA. DO NOT CHANGE THIS.
-  const ParentNodeID = id;
+  let contentsTree = await Read({userId, "type": "TREE", "section": section, "nodeIds": [nodeId]});
+  const combinedNodes = {...contentsTree.parentNode, ...contentsTree.childNode}; // USE ONLY FOR NON CHANGING DATA. DO NOT CHANGE THIS.
+  const parentNodeId = nodeId;
 
-  CombinedNodes[ParentNodeID].parent = New_Parent;
+  combinedNodes[parentNodeId].parent = newParent;
   
   if (moveTo == "bin") { // Send to Bin
-    Mongo.$pull = { [`recent.${section}`]: id }
+    mongo.$pull = { [`recent.${section}`]: nodeId }
     
 
-    let Links = Key_Find(CombinedNodes, ['share', 'link', 'url']);
-    if (Links) {
-      Object.keys(Links).forEach(link => {delete CombinedNodes[link].share});
-      removeShareLink(user, Object.values(Links));
+    let links = Key_Find(combinedNodes, ['share', 'link', 'url']);
+    if (links) {
+      Object.keys(links).forEach(link => {delete combinedNodes[link].share});
+      removeShareLink(userId, Object.values(links));
     }
     
-    if (Current.type.mime == "FOLDER" && !Contents_Tree.Child_Id.length) {
-      DONTSET = true;
+    if (current.type.mime == "FOLDER" && !contentsTree.childId.length) {
+      doNotSet = true;
     } else {
-      Mongo.$push = { [`home.bin.${section}`]: {$each: [id], $position: 0} };
+      mongo.$push = { [`home.bin.${section}`]: {$each: [nodeId], $position: 0} };
       
-      CombinedNodes[ParentNodeID]['BIN_DATA'] = { // Set Bin Data for Recovery
-        "section": section,
-        "parent": Current.parent,
-        "deleted": {"stamp": Nelp.timeNowString(), "who": user}
+      combinedNodes[parentNodeId]['BIN_DATA'] = { // Set Bin Data for Recovery
+        section,
+        "parent": current.parent,
+        "deleted": {"stamp": Nelp.timeNowString(), "who": userId}
       }
       
-      let Total_Tree_Size = Key_Counter( CombinedNodes , "size");
-      Mongo.$inc = Key_Set({ "Pre":'size.total', "Change":Total_Tree_Size, "Negative":true }, Mongo.$inc)
-      Mongo.$inc = Key_Set({ "Pre":'size.bin', "Change":Total_Tree_Size }, Mongo.$inc)
+      let totalTreeSize = Key_Counter( combinedNodes , "size");
+      mongo.$inc = Key_Set({ "pre":'size.total', "change":totalTreeSize, "negative":true }, mongo.$inc)
+      mongo.$inc = Key_Set({ "pre":'size.bin', "change":totalTreeSize }, mongo.$inc)
     }
   } else if (section == "bin") { // Recover from Bin
-    Mongo.$pull = { [`home.bin.${moveTo}`]: id } // Removes from bin parent array.
-    Mongo.$push = { [`recent.${moveTo}`]: id } // Adds the parent to recent to make it easier to find.
+    mongo.$pull = { [`home.bin.${moveTo}`]: nodeId } // Removes from bin parent array.
+    mongo.$push = { [`recent.${moveTo}`]: nodeId } // Adds the parent to recent to make it easier to find.
     
-    Current.parent = New_Parent; // Needed as Current parent is 'homepage' as it was in the bin. Thus needs changing back.
+    current.parent = newParent; // Needed as Current parent is 'homepage' as it was in the bin. Thus needs changing back.
     
-    Mongo.$set = {[`${moveTo}.${New_Parent}.contents.${id}`]: Short_Contents(changeTo, Current)};
+    mongo.$set = {[`${moveTo}.${newParent}.contents.${nodeId}`]: Short_Contents(changeTo, current)};
     
-    CombinedNodes[ParentNodeID].parent = CombinedNodes[ParentNodeID]?.BIN_DATA?.parent || 'homepage';
-    delete CombinedNodes[ParentNodeID]['BIN_DATA'];
+    combinedNodes[parentNodeId].parent = combinedNodes[parentNodeId]?.BIN_DATA?.parent || 'homepage';
+    delete combinedNodes[parentNodeId]['BIN_DATA'];
     
-    let Total_Tree_Size = Key_Counter( CombinedNodes , "size");
-    Mongo.$inc = Key_Set({ "Pre":'size.bin', "Change":Total_Tree_Size, "Negative":true }, Mongo.$inc);
-    Mongo.$inc = Key_Set({ "Pre":'size.total', "Change":Total_Tree_Size }, Mongo.$inc);
+    let totalTreeSize = Key_Counter( combinedNodes , "size");
+    mongo.$inc = Key_Set({ "pre":'size.bin', "change":totalTreeSize, "negative":true }, mongo.$inc);
+    mongo.$inc = Key_Set({ "pre":'size.total', "change":totalTreeSize }, mongo.$inc);
   }
 
-  Mongo.$unset = ID_Set(section, [...Contents_Tree.Parent_Id, ...Contents_Tree.Child_Id], Mongo.$unset);
+  mongo.$unset = ID_Set(section, [...contentsTree.parentId, ...contentsTree.childId], mongo.$unset);
 
-  if (DONTSET) {
-    delete Mongo.$set;
-    delete Mongo.$push;
+  if (doNotSet) {
+    delete mongo.$set;
+    delete mongo.$push;
   } else {
-    Mongo.$set = Key_Set({ "Pre":moveTo as Sections | "homepage" | "_GENERAL_", "Change":CombinedNodes, "Move":true }, Mongo.$set);
+    mongo.$set = Key_Set({ "pre":moveTo as Sections | "homepage" | "_GENERAL_", "change":combinedNodes, "move":true }, mongo.$set);
   }
 
-  return Mongo;
+  return mongo;
 }
 
 // ==========================================
@@ -385,7 +385,7 @@ const Short_Contents = function(fir:ShortNode={}, sec:ShortNode={}):ShortNode|{}
   };
 }
 
-const ID_Query = function({section, query, contents}:ID_Query, created:LooseObject={}):MongoObject {
+const ID_Query = function({section, query, contents}:IdQuery, created:LooseObject={}):MongoObject {
   if (query.length) {
     query.forEach(item => { item ? created[`${section}.${item}${contents ? '.contents' : ''}`] = 1 : '' });
   }
@@ -402,31 +402,31 @@ const Key_Query = function(Keys:string[], created:LooseObject={}) {
   return created;
 }
 
-const Key_Set = function(Set:Key_Set, created:LooseObject={}) {
-  const {Pre, Change, Move, Negative} = Set;
-  for (let [key, value] of Object.entries(Change)) { 
-    if (Move) {
-      created[`${Pre}.${key}`] = value;
+const Key_Set = function(Set:KeySet, created:LooseObject={}) {
+  const {pre, change, move, negative} = Set;
+  for (let [key, value] of Object.entries(change)) { 
+    if (move) {
+      created[`${pre}.${key}`] = value;
     } else {
       typeof value == "object" // @ts-ignore
-        ? created[`${Pre}.${key+="."+Object.keys(value)[0]}`] = (Negative ? -Math.abs(value) : value[Object.keys(value)[0]])
-        : created[`${Pre}.${key}`] = (Negative ? -Math.abs(value) : value)}
+        ? created[`${pre}.${key+="."+Object.keys(value)[0]}`] = (negative ? -Math.abs(value) : value[Object.keys(value)[0]])
+        : created[`${pre}.${key}`] = (negative ? -Math.abs(value) : value)}
     }
   return created;
 }
 
-const Key_Counter = function(Node_List:{[key:string]:Node}, wanted:'size', counter:LooseObject={}):Total_Tree_Size {
-  for (const [key, node] of Object.entries(Node_List)) {
+const Key_Counter = function(nodeList:{[key:string]:Node}, wanted:'size', counter:LooseObject={}):TotalTreeSize {
+  for (const [key, node] of Object.entries(nodeList)) {
     let type = wanted == "size" ? Nelp.baseMimeType(node.type.mime) : wanted;
     isNaN(counter?.[type]) ? counter[type] = ~~(node[wanted]) : counter[type] += ~~(node[wanted])
   }
   return counter;
 }
 
-const Key_Find = function(Node_List:{[key:string]:Node}, path: string[], match?: string|boolean|number) { // ex: ['share', 'link', 'url']
+const Key_Find = function(nodeList:{[key:string]:Node}, path: string[], match?: string|boolean|number) { // ex: ['share', 'link', 'url']
   let counter:LooseObject={}
 
-  for (const [key, node] of Object.entries(Node_List)) {
+  for (const [key, node] of Object.entries(nodeList)) {
     let foundValue = path.reduce((a:any,b:any) => a?.[b], node);
     // ? Example:  ['share', 'link', 'url'].reduce((a,b)=>a[b], node);
 
@@ -440,32 +440,32 @@ const Key_Find = function(Node_List:{[key:string]:Node}, path: string[], match?:
 
 // ==========================================
 
-const Node_Exists = async(uID:string, check:{section:Sections, id:string}) => {
-  const {section, id} = check;
+const Node_Exists = async(userId:string, check:{section:Sections, nodeId:string}) => {
+  const {section, nodeId} = check;
   return await Node_Coll.findOne({
-    "_id": uID,
-    [`${section}.${id}`]: {$exists: true}
+    "_id": userId,
+    [`${section}.${nodeId}`]: {$exists: true}
   }).then((items:any) => { return items ? true : false })
 }
 
-const Node_Get = async(uID:string, fetch:LooseObject) => {
+const Node_Get = async(userId:string, fetch:LooseObject) => {
   return Object.keys(fetch).length == 0 
     ? ["Empty Query"] 
     : await Node_Coll.aggregate([
-      { $match: { '_id': uID } },
+      { $match: { '_id': userId } },
       { $project: fetch}
     ]).toArray();
 };
 
-const Node_Set = async(uID:string, set:MongoObject) => {
+const Node_Set = async(userId:string, set:MongoObject) => {
   return Node_Coll.updateOne(
-    {"_id": uID},
+    {"_id": userId},
     set
   )
 };
 
-const Node_Account_Set = async(Account_Data:Account_Base_Nodes) => {
-  return Node_Coll.insertOne(Account_Data)
+const Node_Account_Set = async(accountData:AccountBaseNodes) => {
+  return Node_Coll.insertOne(accountData)
   .then(async() => { return true; })
   .catch((err:any) => {console.log(`Couldn\'t Create Node Account: ${err}`); return false; })
 }

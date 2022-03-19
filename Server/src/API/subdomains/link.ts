@@ -4,7 +4,7 @@ const Link_Router = express.Router();
 
 import csp from 'helmet-csp'
 import cors from 'cors'
-const corsOptions = {origin: 'https://link.Nanode.one'}
+const corsOptions = {origin: 'https://link.nanode.one'}
 
 import crypto from 'crypto'
 
@@ -29,7 +29,7 @@ Link_Router.use((req, res, next) => {res.locals.nonce = crypto.randomBytes(16).t
 Link_Router.use(express.urlencoded({extended: false}))
 Link_Router.use(csp({
   directives: {
-    connectSrc: ["'self'", 'nanode.one', 'https://Nanode.one/socket.io/','wss://Nanode.one/socket.io/'],
+    connectSrc: ["'self'", 'nanode.one', 'https://nanode.one/socket.io/','wss://nanode.one/socket.io/'],
     styleSrc: ["'self'", 'use.fontawesome.com', 'fonts.googleapis.com', 'nanode.one', "'unsafe-inline'"],
     fontSrc: ["'self'", 'nanode.one', 'fonts.gstatic.com', 'use.fontawesome.com'],
   }
@@ -40,7 +40,7 @@ Link_Router.use('/download/preview/:id', cors(corsOptions), async(req, res) => {
   if (typeof item != 'undefined' && Number.isInteger(item)) {
     await Links.readDownloadLink(req.params.id).then((result:DownloadLinkTemplate) => {
       if (result.for == "SHARE") {
-        ReadWrite.Mass(res, {'fileID':result.preview[item].File, 'mimetype':result.preview[item].Mime});
+        ReadWrite.Mass(res, {'fileId':result.preview[item].file, 'mimetype':result.preview[item].mime});
       }
     })
     return;
@@ -61,11 +61,11 @@ Link_Router.use('/download/a/:id', async(req, res) => {
 })
 
 Link_Router.use('/download/:id', cors(corsOptions), Nauth.Middle, async(req, res) => {
-  let userID = req.headers.uID as User;
+  let userId = req.headers.userId as UserId;
 
   await Links.readDownloadLink(req.params.id).then((result: DownloadLinkTemplate|false) => {
-    if (result === false || (result.for == "SELF" && userID != result.owner)) { return Nelp.errorPage(res); }
-    if (result.for == "SELF" && userID == result.owner) {
+    if (result === false || (result.for == "SELF" && userId != result.owner)) { return Nelp.errorPage(res); }
+    if (result.for == "SELF" && userId == result.owner) {
       res.download("F:\\Nanode\\Files\\Downloads\\Nanode_"+result.url+".zip", result.title+".zip", (err) => {
         if (err) {return Nelp.errorPage(res);}
       })
@@ -88,9 +88,9 @@ Link_Router.use('/download/:id', cors(corsOptions), Nauth.Middle, async(req, res
 })
 
 Link_Router.use('/:link', cors(corsOptions), async(req, res) => {
-  let fileName_mimeType = await Links.readShareLink(req.params.link).then((result:LinkTemplate|false) => {
+  await Links.readShareLink(req.params.link).then((result:LinkTemplate|false) => {
     if (result === false) { return Nelp.errorPage(res); }
-    else if (result.mime != "FOLDER") { ReadWrite.Mass(res, {'fileID':result.file, 'mimetype':result.mime}); }
+    else if (result.mime != "FOLDER") { ReadWrite.Mass(res, {'fileId':result.file, 'mimetype':result.mime}); }
     else if (result.mime == "FOLDER") {
       console.log(result)
       console.log("Folder Support Soon");
@@ -99,7 +99,7 @@ Link_Router.use('/:link', cors(corsOptions), async(req, res) => {
   }).catch((err) => { console.log(err); return Nelp.errorPage(res); })
 })
 
-Link_Router.get('/', async(req, res) => { res.redirect('https://Nanode.one'); })
+Link_Router.get('/', async(req, res) => { res.redirect('https://nanode.one'); })
 
 
 module.exports = Link_Router;

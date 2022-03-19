@@ -38,11 +38,11 @@ const form = formidable({
 });
  
 Upload_Router.post('/test_upload', Nauth.Middle, (req, res, next) => {
-  const userID = req.headers.uID as User;
-  const {message, meta, chunk_info} = JSON.parse(req.headers.form as string);
+  const userId = req.headers.userId as UserId;
+  const {message, meta, chunkInfo} = JSON.parse(req.headers.form as string);
   // const {file} = req.body;
 
-  console.log(message, meta, chunk_info);
+  console.log(message, meta, chunkInfo);
  
   form.parse(req, (err, fields, files) => {
     if (err) { return next(err); }
@@ -59,7 +59,7 @@ module.exports = Upload_Router;
 // const upload = multer({limits: {fieldSize: 50 * 1024 * 1024}})
 
 // Upload_Router.post('/test_upload', Nauth.Middle, upload.single('file'), async (req, res, next) => {
-//   const userID = req.headers.uID as User;
+//   const userId = req.headers.userId as User;
 //   const {message, meta, chunk_info} = JSON.parse(req.headers.form as string);
 //   const {file} = req.body;
 
@@ -88,14 +88,14 @@ module.exports = Upload_Router;
 // const upload = multer({limits: {fieldSize: 50 * 1024 * 1024}})
 
 // Upload_Router.post('/upload', Nauth.Middle, upload.none(), async (req, res, next) => {
-//   const userID = req.headers.uID as User;
+//   const userId = req.headers.userId as User;
 //   const {message, meta, chunk_info} = JSON.parse(req.headers.form as string);
 //   const {file} = req.body;
 
 //   if (meta?.parent === 'SEARCH' || !meta?.parent) return Send.Message(res, 405, {'status': 'Invalid', 'message': 'Not a valid upload destination'})
 
 //   if (message) {
-//     if (message === "Queue_Empty" && ReadWrite.UploadCheck(userID, false)) { ReadWrite.UploadCheck(userID, true); return res.sendStatus(200);}
+//     if (message === "Queue_Empty" && ReadWrite.UploadCheck(userId, false)) { ReadWrite.UploadCheck(userId, true); return res.sendStatus(200);}
 //     else if (message === "Cancelled") { console.log("Upload Cancelled, empty Tree and Remove file chunks?"); return res.sendStatus(200); }
 //   }
 
@@ -103,17 +103,17 @@ module.exports = Upload_Router;
 //   // const FileData = Buffer.from(file);
 //   const upload_chunk_size = Buffer.byteLength(FileData);
 
-//   let Allocation = await Security.Upload_Limit(userID, upload_chunk_size, chunk_info, meta); // Checks User Plan against the upload.
+//   let Allocation = await Security.Upload_Limit(userId, upload_chunk_size, chunk_info, meta); // Checks User Plan against the upload.
 //   if (Allocation.auth === false) { return Send.Message(res, 403, {"status": Allocation.msg}) }
 
 //   if (Allocation.auth === true && FileData) {
 
 //     // Encrypt File here
 //     let result = await ReadWrite.Upload({
-//       user: userID,
+//       user: userId,
 //       id: meta.id,
 //       index: chunk_info.index,
-//       total: chunk_info.total_chunks,
+//       total: chunk_info.totalChunks,
 //       FileArray: FileData,
 //     }); // :Chunk
 
@@ -123,7 +123,7 @@ module.exports = Upload_Router;
 //     else if (result.written) { // Entire File written, add to Upload_Tree and request next file.
 //       meta.size = Allocation.size as number;
 //       meta.type = result.file_type?.mime || meta.type;
-//       await ReadWrite.Write_To_User_File(userID, result.file_oID as string, meta);
+//       await ReadWrite.Write_To_User_File(userId, result.file_oID as string, meta);
 //       return Send.Message(res, 200, {"status": "Complete", "plan": Allocation.plan})
 //     }
 //     else { return Send.Message(res, 200, {"status": 'unknown'}) }
@@ -138,29 +138,29 @@ module.exports = Upload_Router;
 
 
 // Upload_Router.post('/upload', Nauth.Middle, async (req, res, next) => {
-//   const userID = req.headers.uID as User;
+//   const userId = req.headers.userId as User;
 //   const {message, meta, chunk_info, file} = req.body as POST_Upload;
 
 //   if (meta?.parent === 'SEARCH' || !meta?.parent) return Send.Message(res, 405, {'status': 'Invalid', 'message': 'Not a valid upload destination'})
 
 //   if (message) {
-//     if (message === "Queue_Empty" && ReadWrite.UploadCheck(userID, false)) { ReadWrite.UploadCheck(userID, true); return res.sendStatus(200);}
+//     if (message === "Queue_Empty" && ReadWrite.UploadCheck(userId, false)) { ReadWrite.UploadCheck(userId, true); return res.sendStatus(200);}
 //     else if (message === "Cancelled") { console.log("Upload Cancelled, empty Tree and Remove file chunks?"); return res.sendStatus(200); }
 //   }
 
 //   const FileData = Buffer.from(file);
 //   const upload_chunk_size = Buffer.byteLength(FileData);
 
-//   let Allocation = await Security.Upload_Limit(userID, upload_chunk_size, chunk_info, meta); // Checks User Plan against the upload.
+//   let Allocation = await Security.Upload_Limit(userId, upload_chunk_size, chunk_info, meta); // Checks User Plan against the upload.
 //   if (Allocation.auth === false) { return Send.Message(res, 403, {"status": Allocation.msg}) }
 
 //   if (Allocation.auth === true && FileData) {
 //     // Encrypt File here
 //     let result = await ReadWrite.Upload({
-//       user: userID,
+//       user: userId,
 //       id: meta.id,
 //       index: chunk_info.index,
-//       total: chunk_info.total_chunks,
+//       total: chunk_info.totalChunks,
 //       FileArray: FileData,
 //     }); // :Chunk
 
@@ -170,7 +170,7 @@ module.exports = Upload_Router;
 //     else if (result.written) { // Entire File written, add to Upload_Tree and request next file.
 //       meta.size = Allocation.size as number;
 //       meta.type = result.file_type?.mime || meta.type;
-//       await ReadWrite.Write_To_User_File(userID, result.file_oID as string, meta);
+//       await ReadWrite.Write_To_User_File(userId, result.file_oID as string, meta);
 //       return Send.Message(res, 200, {"status": "Complete", "plan": Allocation.plan})
 //     }
 //     else { return Send.Message(res, 200, {"status": 'unknown'}) }
@@ -206,7 +206,7 @@ module.exports = Upload_Router;
 //     headers: {
 //       form: JSON.stringify({
 //         'meta': Meta,
-//         'chunk_info': {"index": Upload.Num, "total_chunks": Info.total_chunks, "total_size": Info.total_size}
+//         'chunk_info': {"index": Upload.Num, "totalChunks": Info.totalChunks, "total_size": Info.total_size}
 //       }) 
 //     },
 //     body: formData,
@@ -214,5 +214,5 @@ module.exports = Upload_Router;
   
 //   N_.ClientStatus(1, "Off");
 
-//   this.Item_Status(Reply, {Meta, "upload_num": Upload.Num, "total_chunks": Info.total_chunks, "total_size": Info.total_size}, {Chunks, Info});
+//   this.Item_Status(Reply, {Meta, "upload_num": Upload.Num, "totalChunks": Info.totalChunks, "total_size": Info.total_size}, {Chunks, Info});
 // }

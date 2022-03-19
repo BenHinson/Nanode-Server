@@ -5,7 +5,7 @@ import { Request } from 'express-serve-static-core';
 const ActivityLog = function(req:Request, data:Activity) {
   if (req.get('host') == 'drive.nanode.one' && req.originalUrl !== '/') { return; }
 
-  if (data?.uID == '56d0bc91-229e-4109-9fd5-d968386518a6') { return; }
+  if (data?.userId == process.env.ADMIN_ID) { return; }
 
   const log = {
     "path": req.protocol + '://' + req.get('host') + req.originalUrl,

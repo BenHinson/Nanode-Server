@@ -10,13 +10,12 @@ import Node from '../Node/node';
 import Account from '../Account/account';
 
 
-const UploadLocation = 'F://Nanode/Files/';
-const MassDirectory = `${UploadLocation}/Mass/`;
-const ThumbnailDirectory = `${UploadLocation}/Thumbnails/`;
-const Chunk_Storage = `${UploadLocation}/Chunks/`;
-const End_Storage = `${UploadLocation}/Mass/`;
+const MassDirectory = process.env.MASS_DIRECTORY!;
+const ThumbnailDirectory = process.env.THUMBNAIL_DIRECTORY!;
+const EndStorage = process.env.END_STORAGE!;
+const ChunkStorage = process.env.CHUNK_STORAGE!;
 
-const Upload_Object_Tree:UploadObjectTree = {}; // Seperates Uploads by Account IDs
+const uploadObjectTree:UploadObjectTree = {}; // Separates Uploads by Account IDs
 
 
 // ======================= TS ========================
@@ -26,7 +25,7 @@ import { Response } from 'express';
 
 
 const Mass = function(res:Response, readData:ReadData):Buffer|false {
-  const fileName = readData.thumbnail ? readData.thumbnail : readData.fileID || uuidv3(readData.nodeID, readData.userID);
+  const fileName = readData.thumbnail ? readData.thumbnail : readData.fileId || uuidv3(readData.nodeId, readData.userId);
   const fileDirectory = readData.thumbnail ? ThumbnailDirectory+fileName : MassDirectory+fileName;
 
   fse.readFile(fileDirectory, async(err, data) => {
@@ -57,40 +56,40 @@ const WriteThumbnail = async function(fileName:string, data:Buffer):Promise<Bool
 }
 
 
-const UploadCheck = function(user:string, reset:boolean) {
-  return reset ? Upload_Object_Tree[user] = [] : Upload_Object_Tree[user]
+const UploadCheck = function(userId:UserId, reset:boolean) {
+  return reset ? uploadObjectTree[userId] = [] : uploadObjectTree[userId]
 }
 
 const Upload = async function(chunk:Chunk):Promise<UploadReturn> {
-  const {user, id, index, total, FileArray} = chunk;
+  const {userId, nodeId, index, total, fileArray} = chunk;
   
-  const ThisChunkName = Chunk_Storage+["CHUNK", id, index].join('-');
-  const PreviousChunkName = Chunk_Storage+["CHUNK", id, index-1].join('-');
+  const ThisChunkName = ChunkStorage+["CHUNK", nodeId, index].join('-');
+  const PreviousChunkName = ChunkStorage+["CHUNK", nodeId, index-1].join('-');
   
   if (index > 0) { // Add to Previous
-    await fse.promises.appendFile(PreviousChunkName, FileArray).catch(err => {console.log(err); return "Failed"});
+    await fse.promises.appendFile(PreviousChunkName, fileArray).catch(err => {console.log(err); return "Failed"});
     await fse.promises.rename(PreviousChunkName, ThisChunkName).catch(err => {console.log(err); return "Failed"});
   } else {
-    await fse.promises.writeFile(ThisChunkName, FileArray).catch(err => {console.log(err); return "Failed"});
+    await fse.promises.writeFile(ThisChunkName, fileArray).catch(err => {console.log(err); return "Failed"});
   }
 
   if (index >= total - 1) { // Finish Up by Moving File and Renaming
-    let file_oID = uuidv1();
-    let file_type = await FileType.fromFile(ThisChunkName);
-    await fse.promises.rename(ThisChunkName, End_Storage+uuidv3(file_oID, user)).catch(err => {console.log(err); return "Failed"});
-    return {"written": true, file_oID, file_type};
+    let fileNodeId = uuidv1();
+    let fileType = await FileType.fromFile(ThisChunkName);
+    await fse.promises.rename(ThisChunkName, EndStorage+uuidv3(fileNodeId, userId)).catch(err => {console.log(err); return "Failed"});
+    return {"written": true, fileNodeId, fileType};
   }
-  return {chunkWrite:"Success"};
+  return {'chunkWrite':"Success"};
 }
 
-const Write_To_User_File = async function(user:string, oID:string, meta:UploadMeta) {
-  if (!Upload_Object_Tree[user]) { Upload_Object_Tree[user] = []; }
-  let relative_path:string[] = meta.relative_path.split('/');
-  let fID = await Create_Folders(relative_path.slice(0, -1), user, meta);
-  await Create_New_Item(user, oID, fID ?? meta.parent, meta);
+const Write_To_User_File = async function(userId:UserId, nodeId:string, meta:UploadMeta) {
+  if (!uploadObjectTree[userId]) { uploadObjectTree[userId] = []; }
+  let relativePath:string[] = meta.relativePath.split('/');
+  let fID = await Create_Folders(relativePath.slice(0, -1), userId, meta);
+  await Create_New_Item(userId, nodeId, fID ?? meta.parent, meta);
 }
 
-const Perm_Delete = async(userID:User, nodeData:LooseObject, callback:{(arg:Error|null):void}) => {
+const Perm_Delete = async(userId:UserId, nodeData:LooseObject, callback:{(arg:Error|null):void}) => {
   let count = Object.keys(nodeData).length - 1;
   for (const [key, val] of Object.entries(nodeData)) {
     fse.unlink(`${val.drive}://Nanode/Files/Mass/${val.file}`, (err) => {
@@ -104,31 +103,31 @@ export { WriteThumbnail, Perm_Delete }
 export default { Mass, UploadCheck, Upload, Write_To_User_File }
 
 
-const Create_Folders = async(relative_path:string|string[], user:string, meta:UploadMeta) => {
-  let previous_Folder;
-  for (let i=0; i<relative_path.length; i++) {
-    if (!relative_path[i]) { continue; }
-    let found = Upload_Object_Tree[user].find((item:any) => item[relative_path[i]]);
-  	if (found) {previous_Folder = found[relative_path[i]].id; continue; }
+const Create_Folders = async(relativePath:string|string[], userId:UserId, meta:UploadMeta) => {
+  let previousFolder;
+  for (let i=0; i<relativePath.length; i++) {
+    if (!relativePath[i]) { continue; }
+    let found = uploadObjectTree[userId].find((item:any) => item[relativePath[i]]);
+  	if (found) {previousFolder = found[relativePath[i]].id; continue; }
     let fID = uuidv1();
-    Upload_Object_Tree[user].push( {[relative_path[i]]: {"id": fID}});
-    await Create_New_Item(user, fID, previous_Folder ?? meta.parent, {...meta, ...{"section": meta.section, "name": relative_path[i]}});
-    previous_Folder = fID;
+    uploadObjectTree[userId].push( {[relativePath[i]]: {"id": fID}});
+    await Create_New_Item(userId, fID, previousFolder ?? meta.parent, {...meta, ...{"section": meta.section, "name": relativePath[i]}});
+    previousFolder = fID;
   }
-  return previous_Folder;
+  return previousFolder;
 
   // let lastFolder = Upload_Object_Tree[user].find(item => meta[relative_path.slice(-1)]); // I may be able to remove these and replace with the previous_Folder variable;
   // return relative_path.length ? lastFolder[relative_path.slice(-1)].id : null; // I may be able to remove these and replace with the previous_Folder variable;
 }
-const Create_New_Item = async(userID:string, oID:string, parent:string, meta:UploadMeta) => {
+const Create_New_Item = async(userId:UserId, nodeId:string, parent:string, meta:UploadMeta) => {
   const {section, name, size, isFi, type, modified} = meta;
 
-  let written_size:number = await Node.Create('Item',
-    {userID, section, parent, oID},
+  let writtenSize:number = await Node.Create('Item',
+    {userId, section, parent, nodeId},
     {name, size, isFi, type, modified }
   );
 
-  if (written_size) {
-    await Account.Write({"user": userID, "type": "Increment", "parentKey": "plan", "childKey": "used", "data": written_size})
+  if (writtenSize) {
+    await Account.Write({userId, "type": "INCREMENT", "parentKey": "plan", "childKey": "used", "data": writtenSize})
   }
 }
