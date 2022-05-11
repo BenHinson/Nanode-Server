@@ -14,46 +14,50 @@ import Send from '../send';
 
 Upload_Router.use(express.urlencoded({extended: true}));
 
-Upload_Router.use(cors({
-  origin: 'https://drive.nanode.one',
-  methods: ['POST', 'PUT']
-}))
-Upload_Router.use(csp({
-  directives: {
-    connectSrc: ["'self'", 'nanode.one', '*.nanode.one', 'https://drive.nanode.one'],
-    // connectSrc: ["'self'", 'nanode.one', 'https://drive.nanode.one'],
-  }
-}));
-
-
-
-
+Upload_Router.use(
+  cors({
+    origin: 'https://drive.nanode.one',
+    methods: ['POST', 'PUT'],
+  }),
+);
+Upload_Router.use(
+  csp({
+    directives: {
+      connectSrc: [
+        "'self'",
+        'nanode.one',
+        '*.nanode.one',
+        'https://drive.nanode.one',
+      ],
+      // connectSrc: ["'self'", 'nanode.one', 'https://drive.nanode.one'],
+    },
+  }),
+);
 
 import formidable from 'formidable';
- 
 
 const form = formidable({
   multiples: true,
-  uploadDir: 'F://Nanode/Files/Trail'
+  uploadDir: 'F://Nanode/Files/Trail',
 });
- 
+
 Upload_Router.post('/test_upload', Nauth.Middle, (req, res, next) => {
   const userId = req.headers.userId as UserId;
   const {message, meta, chunkInfo} = JSON.parse(req.headers.form as string);
   // const {file} = req.body;
 
   console.log(message, meta, chunkInfo);
- 
+
   form.parse(req, (err, fields, files) => {
-    if (err) { return next(err); }
+    if (err) {
+      return next(err);
+    }
     console.log(files);
-    res.json({ fields, files });
+    res.json({fields, files});
   });
 });
 
 module.exports = Upload_Router;
-
-
 
 // import multer from 'multer';
 // const upload = multer({limits: {fieldSize: 50 * 1024 * 1024}})
@@ -63,7 +67,6 @@ module.exports = Upload_Router;
 //   const {message, meta, chunk_info} = JSON.parse(req.headers.form as string);
 //   const {file} = req.body;
 
-
 //   console.log(typeof file)
 
 //   const FileData = Buffer.from(file.split`,`.map((x:string)=>+x));
@@ -72,17 +75,6 @@ module.exports = Upload_Router;
 //   fs.writeFile(meta.name, FileData);
 //   fs.writeFile("2_"+meta.name, Buffer.from(file));
 // })
-
-
-
-
-
-
-
-
-
-
-
 
 // import multer from 'multer';
 // const upload = multer({limits: {fieldSize: 50 * 1024 * 1024}})
@@ -132,11 +124,6 @@ module.exports = Upload_Router;
 //   }
 // })
 
-
-
-
-
-
 // Upload_Router.post('/upload', Nauth.Middle, async (req, res, next) => {
 //   const userId = req.headers.userId as User;
 //   const {message, meta, chunk_info, file} = req.body as POST_Upload;
@@ -179,26 +166,12 @@ module.exports = Upload_Router;
 //   }
 // })
 
-
-
-
-
-
-
-
-
-
-
-
-
 /// CLIENT SIDE CLIENT SIDE CLIENT SIDE CLIENT SIDE CLIENT SIDE CLIENT SIDE
-
-
 
 // Post = async (Chunks, Upload, Info, Meta) => { // ! THIS IS TEST CODE PLEASE REMOVE ===== This code is 5 Times faster at uploading files.
 //   const formData = new FormData();
 //   formData.append('file', Upload.Data)
-  
+
 //   uploadConfig.Time_Difference = Date.now();
 
 //   const Reply = await( await fetch('https://drive.nanode.one/test_upload', {
@@ -207,11 +180,11 @@ module.exports = Upload_Router;
 //       form: JSON.stringify({
 //         'meta': Meta,
 //         'chunk_info': {"index": Upload.Num, "totalChunks": Info.totalChunks, "total_size": Info.total_size}
-//       }) 
+//       })
 //     },
 //     body: formData,
 //   }) ).json();
-  
+
 //   N_.ClientStatus(1, "Off");
 
 //   this.Item_Status(Reply, {Meta, "upload_num": Upload.Num, "totalChunks": Info.totalChunks, "total_size": Info.total_size}, {Chunks, Info});

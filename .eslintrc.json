@@ -1,0 +1,42 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true
+    },
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module"
+    },
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "rules": {
+        // Possible errors
+        "no-comma-dangle": 2,
+        "no-dupe-keys": 2,
+        "no-empty": 2,
+        "no-empty-class": 2,
+        "no-invalid-regexp": 2,
+        "no-irregular-whitespace": 2,
+        "no-unreachable": 2,
+
+        // Best practices
+        "no-unused-expressions": 2,
+
+        // Variables
+        "no-unused-vars": 0,
+
+        // Stylistic issues
+        "camelcase": 2,
+        "comma-spacing": [2, {
+            "before": false,
+            "after": true,
+        }]
+
+    }
+}

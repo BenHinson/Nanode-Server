@@ -1,49 +1,46 @@
 const Settings_Template = {
-  "accessed": "",
-  "date": 0,
-}
+  accessed: '',
+  date: 0,
+};
 
-const Node_Account:AccountBaseNodes = {
+const Node_Account: AccountBaseNodes = {
   _id: '',
   enc_key: '',
-  "size": {
-    "max": Number(process.env.MAX_FREE_PLAN_STORAGE), // 10 GB
-    "total": {},
-    "bin": {}
+  size: {
+    max: Number(process.env.MAX_FREE_PLAN_STORAGE), // 10 GB
+    total: {},
+    bin: {},
   },
-  "recent": {},
-  "home": {
-    "main": [
-      '_MAIN_',
-      '_GENERAL_'
-    ],
-    "codex": [],
-    "blocks": [],
-    "bin": {
-      "main": [],
-      "codex": [],
-      "blocks": []
-    }
-  },
-  "main": {
-    "_MAIN_": {
-      "name": 'Main',
-      "contents": {}
+  recent: {},
+  home: {
+    main: ['_MAIN_', '_GENERAL_'],
+    codex: [],
+    blocks: [],
+    bin: {
+      main: [],
+      codex: [],
+      blocks: [],
     },
-    "_GENERAL_": {
-      "name": 'General',
-      "contents": {}
-    }
   },
-  "codex": {},
-  "blocks": {},
-  "bin": {
-    "main": {},
-    "codex": {},
-    "blocks": {}
-  }
+  main: {
+    _MAIN_: {
+      name: 'Main',
+      contents: {},
+    },
+    _GENERAL_: {
+      name: 'General',
+      contents: {},
+    },
+  },
+  codex: {},
+  blocks: {},
+  bin: {
+    main: {},
+    codex: {},
+    blocks: {},
+  },
 };
-const Node_Item:Node|any = {
+const Node_Item: Node | any = {
   id: '',
   name: '',
   parent: '',
@@ -51,27 +48,22 @@ const Node_Item:Node|any = {
   time: {
     created: {
       stamp: '',
-      who: ''
-    }
+      who: '',
+    },
   },
   contents: {},
   type: {
     file: '',
-    mime: ''
+    mime: '',
   },
 };
-const Short_Node:ShortNode = {
+const Short_Node: ShortNode = {
   name: '',
   type: {mime: ''},
   size: 0,
-  color: ''
+  color: '',
 };
 
 // ===================================================
 
-export {
-  Settings_Template,
-  Node_Account,
-  Node_Item,
-  Short_Node
-}
+export {Settings_Template, Node_Account, Node_Item, Short_Node};
