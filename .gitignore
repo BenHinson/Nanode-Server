@@ -1,7 +1,8 @@
+.vscode/
 auth/
 python/
 development/
-keys.js
+keys*
 
 
 

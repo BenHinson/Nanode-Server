@@ -1,0 +1,13 @@
+declare module 'express-subdomain';
+declare module 'cookie';
+declare module 'helmet';
+declare module 'cors';
+declare module 'cookie-parser';
+declare module 'cookie-signature';
+declare module 'uuid';
+declare module 'ua-parser-js';
+declare module 'crypto-js';
+declare module 'validator';
+declare module 'uuid/v3';
+declare module 'request';
+declare module 'http-proxy';
