@@ -485,13 +485,13 @@ Drive_Router.post('/auth', Nauth.Middle, async (req, res) => {
     wanted: 'Access',
     input: entries,
   });
-  if (access === true) {
-    return await Send.Read_Send_Contents(
-      {userId, type: 'ID', section, path: [nodeId], contents: false},
-      res,
-    );
-  }
-  return res.status(200).send({Error: 'Invalid'});
+
+  return access === true
+    ? await Send.Read_Send_Contents(
+        {userId, type: 'ID', section, path: [nodeId], contents: false},
+        res,
+      )
+    : res.status(200).send({Error: 'Invalid'});
 });
 
 Drive_Router.post('/upload', Nauth.Middle, async (req, res) => {

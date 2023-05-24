@@ -288,7 +288,7 @@ const Read = async (Query: NodeRead, project: MongoObject = {}) => {
     project = ID_Query({section, query: listOfIds});
   } else if (type == 'SPECIFIC') {
     // Returns Specific Values from Nodes
-    // EXAMPLE => let Type = await Node.Read({"user": userId, "type": "SPECIFIC", "section": section, "ids": [WantedURL], "keys": ["type"]});
+    // EXAMPLE => let Type = await Node.Read({userId, "type": "SPECIFIC", section, "ids": [WantedURL], "keys": ["type"]});
 
     nodeIds.forEach((nodeId: string) => {
       project[`${section}.${nodeId}`] = Key_Query(keys as string[]);

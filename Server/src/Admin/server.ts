@@ -36,23 +36,18 @@ const Start_Server = (Nauth: LooseObject) => {
 
   // Start Server
   const server = require('https').createServer(options, app);
+  
+  const proxy = httpProxy.createProxyServer();
 
-  app.use(
-    subdomain('playground', function (req: any, res: any, next: any) {
-      // Placing this here, bypasses bodyParser and is able to proxy the request.
-      proxy.web(
-        req,
-        res,
-        {
-          target: {
-            host: process.env.PROXY_HOST,
-            port: process.env.PROXY_PORT,
-          },
-        },
-        (err: Error) => {},
-      );
-    }),
-  );
+  // Placing this here, bypasses bodyParser and is able to proxy the request.
+  app.use(subdomain('playground', function (req: any, res: any, next: any) {
+    proxy.web(req, res, {
+      target: {
+        host: process.env.PROXY_HOST_PLAYGROUND,
+        port: process.env.PROXY_PORT_PLAYGROUND,
+      },
+    }, (err: Error) => {});
+  }));
 
   // Setup Server
   app.set('view-engine', 'ejs');
@@ -84,7 +79,6 @@ const Start_Server = (Nauth: LooseObject) => {
   server.listen(process.env.PORT!, () => {
     console.log('Running on Port', server.address().port);
   });
-  const proxy = httpProxy.createProxyServer();
 
   // Subdomains
   app.use(subdomain('drive', require('../API/subdomains/drive')));
